@@ -154,6 +154,37 @@ static map<string, const char*> s_envVariables = {
 	{ "pcsx2_button_deadzone2", "0%" },
 	{ "pcsx2_invert_left_stick2", "disabled" },
 	{ "pcsx2_invert_right_stick2", "disabled" },
+    { "dolphin_efb_scale", "x1 (640 x 528)" },
+	{ "dolphin_log_level", "Info" },
+	{ "dolphin_cpu_clock_rate", "100%" },
+    { "dolphin_enable_rumble", "disabled" },
+	// { "dolphin_renderer", "Software" },
+	// { "dolphin_fastmem", "disabled" },
+	// { "dolphin_dsp_hle", "enabled" },
+	// { "dolphin_dsp_jit", "enabled" },
+	// { "dolphin_cpu_core", "JIT64" },
+	// { "dolphin_language", "English" },
+	// { "dolphin_widescreen", "disabled" },
+	// { "dolphin_widescreen_hack", "disabled" },
+	// { "dolphin_progressive_scan", "disabled" },
+	// { "dolphin_pal60", "disabled" },
+	// { "dolphin_sensor_bar_position", "Bottom" },
+	// { "dolphin_wiimote_continuous_scanning", "disabled" },
+	// { "dolphin_mixer_rate", "32000" },
+	{ "dolphin_shader_compilation_mode", "sync" },
+	// { "dolphin_max_anisotropy", "0" },
+	{ "dolphin_efb_scaled_copy", "enabled" },
+	{ "dolphin_efb_to_texture", "enabled" },
+	// { "dolphin_efb_to_vram", "disabled" },
+	// { "dolphin_fast_depth_calculation", "disabled" },
+	// { "dolphin_bbox_enabled", "disabled" },
+	{ "dolphin_gpu_texture_decoding", "enabled" },
+	{ "dolphin_wait_for_shaders", "disabled" },
+	// { "dolphin_force_texture_filtering", "disabled" },
+	// { "dolphin_load_custom_textures", "disabled" },
+	// { "dolphin_cheats_enabled", "disabled" },
+	// { "dolphin_texture_cache_accuracy", "disabled" },
+	{ "dolphin_osd_enabled", "disabled" },
 };
 
 
@@ -453,6 +484,10 @@ static void create_window(int width, int height) {
     SDL_GL_SwapWindow(g_win); // make apitrace output nicer
 
     resize_cb(width, height);
+
+    if (g_video.hw.context_reset) {
+        g_video.hw.context_reset();
+    }
 }
 
 
@@ -523,7 +558,9 @@ static void video_configure(const struct retro_game_geometry *geom) {
 
 	refresh_vertex_data();
 
-    g_video.hw.context_reset();
+    if (g_video.hw.context_reset) {
+        g_video.hw.context_reset();
+    }
 }
 
 
@@ -553,50 +590,45 @@ static bool video_set_pixel_format(unsigned format) {
 
 
 static void video_refresh(const void *data, unsigned width, unsigned height, unsigned pitch) {
-    if ((g_video.clip_w != width || g_video.clip_h != height) && (width != 0 && height != 0)) 
-    {
-		g_video.clip_h = height;
-		g_video.clip_w = width;
-
-		refresh_vertex_data();
-	}
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
-
-	if (pitch != g_video.pitch)
-		g_video.pitch = pitch;
-
-    if (data && data != RETRO_HW_FRAME_BUFFER_VALID) {
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, g_video.pitch / g_video.bpp);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
-						g_video.pixtype, g_video.pixfmt, data);
-	}
+    if (!SDL_GL_GetCurrentContext()) {
+        if (g_win && g_ctx) {
+            SDL_GL_MakeCurrent(g_win, g_ctx);
+        }
+    }
 
     if( width != 0 && height != 0) {
         g_retro.width = width;
         g_retro.height = height; 
     }
+    if ((g_video.clip_w != width || g_video.clip_h != height) && (width != 0 && height != 0)) {
+        g_video.clip_h = height;
+        g_video.clip_w = width;
+        refresh_vertex_data();
+    }
 
-    int w = 0, h = 0;
-    SDL_GetWindowSize(g_win, &w, &h);
-    glViewport(0, 0, w, h);
-
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(g_shader.program);
+    if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        // Hardware rendering
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    } else if (data && data != RETRO_HW_FRAME_BUFFER_VALID) {
+        // Software rendering
+        glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / g_video.bpp);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
+                        g_video.pixtype, g_video.pixfmt, data);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
+        glUseProgram(g_shader.program);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
+        glBindVertexArray(g_shader.vao);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
 
-
-    glBindVertexArray(g_shader.vao);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-
-    glUseProgram(0);
-
-    SDL_GL_SwapWindow(g_win);
+    // SDL_GL_SwapWindow(g_win);
 }
 
 static void video_deinit() {
@@ -653,16 +685,6 @@ static void audio_init(int frequency) {
         audio_callback.set_state(true);
     }
 }
-
-
-static void audio_deinit() {
-    SDL_CloseAudioDevice(g_pcm);
-}
-
-// static size_t audio_write(const int16_t *buf, unsigned frames) {
-//     SDL_QueueAudio(g_pcm, buf, sizeof(*buf) * frames * 2);
-//     return frames;
-// }
 
 
 static void core_log(enum retro_log_level level, const char *fmt, ...) {
@@ -832,10 +854,10 @@ static bool core_environment(unsigned cmd, void *data) {
                 outvar->value = strdup(s_envVariables[string(outvar->key)]);
             }
 
-            if(!strcmp(outvar->key, "dolphin_renderer")) {
-                free((void*)outvar->value);
-                outvar->value = strdup("Software");
-            }
+            // if(!strcmp(outvar->key, "dolphin_renderer")) {
+            //     free((void*)outvar->value);
+            //     outvar->value = strdup("Software");
+            // }
 
             if(!strcmp(outvar->key, "pcsx2_renderer")) {
                 free((void*)outvar->value);
@@ -928,7 +950,7 @@ static bool core_environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char**)data;
-        *dir = ".";
+        *dir = "./system";
         return true;
     }
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -1173,16 +1195,37 @@ bool load_state(const void* data, size_t size) {
     return g_retro.retro_unserialize(data, size);
 }
 
+bool is_hardware_rendering() {
+    return g_video.hw.context_type != RETRO_HW_CONTEXT_NONE;
+}
+
 void get_frame(uint8_t* buffer, int width, int height) {
     SDL_GL_MakeCurrent(g_win, g_ctx);
 
+    if (is_hardware_rendering()) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    }
+
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
 void run() {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    SDL_GL_MakeCurrent(g_win, g_ctx);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     audioData.clear();
+    g_retro.retro_run();
+    // SDL_GL_SwapWindow(g_win);
+    glFinish(); // ensure all OpenGL commands are done
+}
+
+// only for testing core without window
+void runAlone() {
     g_retro.retro_run();
 }
 
@@ -1203,9 +1246,16 @@ void init(char *core, char *game) {
         die("Failed to initialize SDL");
     }
 
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+    SDL_SetHint(SDL_HINT_RENDER_OPENGL_SHADERS, "1");
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor
+    SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+
+    system("rm -rf ./system/User");
+
     g_video.hw.version_major = 4;
     g_video.hw.version_minor = 5;
-    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGLES3;
+    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
     g_video.hw.context_reset   = noop;
     g_video.hw.context_destroy = noop;
 
@@ -1220,63 +1270,15 @@ void init(char *core, char *game) {
 
     // Configure the player input devices.
     // g_retro.retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-    g_retro.retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-    g_retro.retro_set_controller_port_device(1, RETRO_DEVICE_JOYPAD);
+    for(int i = 0; i < MAX_PLAYERS; i++) {
+        g_retro.retro_set_controller_port_device(i, RETRO_DEVICE_JOYPAD);
+    }
 
-    // SDL_Event ev;
-
-    // while (running) {
-    //     // Update the game loop timer.
-    //     if (runloop_frame_time.callback) {
-    //         retro_time_t current = cpu_features_get_time_usec();
-    //         retro_time_t delta = current - runloop_frame_time_last;
-
-    //         if (!runloop_frame_time_last)
-    //             delta = runloop_frame_time.reference;
-    //         runloop_frame_time_last = current;
-    //         runloop_frame_time.callback(delta);
-    //     }
-
-    //     // Ask the core to emit the audio.
-    //     if (audio_callback.callback) {
-    //         audio_callback.callback();
-    //     }
-
-    //     while (SDL_PollEvent(&ev)) {
-    //         switch (ev.type) {
-    //         case SDL_QUIT: running = false; break;
-    //         case SDL_WINDOWEVENT:
-    //             switch (ev.window.event) {
-    //             case SDL_WINDOWEVENT_CLOSE: running = false; break;
-    //             case SDL_WINDOWEVENT_RESIZED:
-    //                 resize_cb(ev.window.data1, ev.window.data2);
-    //                 break;
-    //             }
-    //         }
-    //     }
-
-    //     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	// 	g_retro.retro_run();
-	// }
-
-	// core_unload();
-	// audio_deinit();
-	// video_deinit();
-
-    // if (g_vars) {
-    //     for (const struct retro_variable *v = g_vars; v->key; ++v) {
-    //         free((char*)v->key);
-    //         free((char*)v->value);
-    //     }
-    //     free(g_vars);
-    // }
-
-    // SDL_Quit();
+    SDL_GL_MakeCurrent(g_win, g_ctx);
 }
 
-void kill() {
+void closeEnv() {
     core_unload();
-	// audio_deinit();
 	video_deinit();
 
     if (g_vars) {
@@ -1326,12 +1328,16 @@ struct RetroEmulator {
         run();
     }
 
+    void runCoreAlone() {
+        runAlone();
+    }
+
     void resetCore() {
         reset();
     }
 
     void closeCore() {
-        kill();
+        closeEnv();
     }
 
     bool setState(py::bytes o) {
@@ -1415,5 +1421,6 @@ PYBIND11_MODULE(_retro, m) {
         .def("init", &RetroEmulator::initCore, py::arg("core"), py::arg("game"))
         .def("get_frame_rate", &RetroEmulator::getFrameRate)
         .def("get_audio_rate", &RetroEmulator::getAudioRate)
-        .def("get_audio", &RetroEmulator::getAudio);
+        .def("get_audio", &RetroEmulator::getAudio)
+        .def("run_alone", &RetroEmulator::runCoreAlone);
 }

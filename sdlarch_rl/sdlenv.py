@@ -30,6 +30,7 @@ class SDLEnv(gym.Env):
 
         self.em = RetroEmulator()
         self.players = players
+        self.gamename = gamename
 
         
         gc.collect()
@@ -39,26 +40,28 @@ class SDLEnv(gym.Env):
 
         self.dirname = os.path.dirname(__file__)
 
-        # TODO: get correct path to core
         core_ext = "so"
         if os.name == 'nt':
             core_ext = "dll"
         elif os.name == 'posix':
             core_ext = "so"
 
-        core = os.path.join(self.dirname, "./cores/ps2/pcsx2_libretro." + core_ext)
+        emu_name = self._get_emu_name()
+
+        core = os.path.join(self.dirname, "./cores/" + emu_name + core_ext)
 
         if not os.path.isfile(core):
             raise FileNotFoundError(f"Core file not found: {core}. Please ensure the path is correct.")
         
-        self.gamename = gamename
+    
 
         if not os.path.exists(os.path.join(self.dirname, r"roms", f"{gamename}")):
             raise FileNotFoundError(
                 f"Game directory not found: {os.path.join(self.dirname, r'roms', f'{gamename}')}. Please ensure the path is correct."
             )
 
-        game = os.path.join(self.dirname, r"roms", f"{gamename}", r"rom.iso")
+        game = self._get_rom_file_name()
+
 
         if not os.path.isfile(game):
             raise FileNotFoundError(f"ROM file not found: {rom}. Please ensure the path is correct.")
@@ -66,8 +69,10 @@ class SDLEnv(gym.Env):
         # starts the emulator main process
         self.em.init(core, game)
 
+        # FIXME: code below crashes on dolphin core
         self.em.run()
 
+        # TODO: other configurations for other cores
         pcsx2_json = os.path.join(self.dirname, r"cores/ps2/pcsx2.json")
 
         with open(pcsx2_json) as f:
@@ -114,13 +119,40 @@ class SDLEnv(gym.Env):
         self.initial_state = None
         self.load_state()
 
+    def _get_rom_file_name(self) -> str:
+        directory_path = os.path.join(self.dirname, r"roms", f"{self.gamename}")
+        roms = []
+
+        for root, dirs, files in os.walk(directory_path):
+            for filename in files:
+                if filename.startswith("rom."):
+                    full_path = os.path.join(root, filename)
+                    roms.append(full_path)
+
+        if len(roms) == 0:
+            raise FileNotFoundError(f"No rom file found in directory: {directory_path}. Please ensure the path is correct.")
+        if len(roms) == 1:
+            return roms[0]
+        raise ValueError(f"Multiple rom files found in directory: {directory_path}. Please ensure there is only one rom file.")
+        
+    def _get_emu_name(self) -> str:
+        gamename = self.gamename.lower()
+        if gamename.endswith("-ps2"):
+            return "ps2/pcsx2_libretro."
+        if gamename.endswith("-wii") or gamename.endswith("-gc"):
+            return "dolphin/dolphin_libretro."
+        raise ValueError(f"Unsupported game type for game: {self.gamename}")
+
     def load_state(self, statename="default.state"):
+        has_state = False
         if not statename.endswith(".state"):
             statename += ".state"
 
         state_path = os.path.join(self.dirname, r"roms", f"{self.gamename}", statename)
-        if not os.path.isfile(state_path):
-            raise FileNotFoundError(f"Meta file not found: {state_path}. Please ensure the path is correct.")
+        has_state = os.path.isfile(state_path)
+        if not has_state:
+            print(f"State file not found: {state_path}. Starting without initial state.")
+            return
         
 
         with gzip.open(
@@ -128,8 +160,6 @@ class SDLEnv(gym.Env):
             "rb",
         ) as fh:
             self.initial_state = fh.read()
-
-        print("length of state:", len(self.initial_state))
 
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         """
