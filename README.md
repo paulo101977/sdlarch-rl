@@ -27,22 +27,23 @@ nmake
 
 ## TODO
 
-- [ ] Run Dolphin Core
+- [ ] Cemu Core (It takes a lot of work to make the core libretro!!!) 
+- [x] Run Dolphin Core
 - [x] Run PCSX2 Core
 - [x] Load PCSX2 States
 - [ ] Compile cores in build
 - [ ] Tool to add games/map memory/save states, etc.
-- [x] Load PCSX2 state from file
+- [x] Load state from file
 - [ ] Gymnasium compatibility
 - [x] Load Emulator memory
 - [ ] Load games in the same standard as stable-retro
 - [ ] Improve performance
-- [ ] Load another cores (Dolphin, etc)
 
 ## Our Youtube Channel
 
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
