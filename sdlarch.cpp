@@ -24,6 +24,15 @@
 #define EXPORT
 #endif
 
+// Define Wii and GC devices
+#define RETRO_DEVICE_WIIMOTE RETRO_DEVICE_JOYPAD
+#define RETRO_DEVICE_WIIMOTE_SW ((2 << 8) | RETRO_DEVICE_JOYPAD)
+#define RETRO_DEVICE_WIIMOTE_NC ((3 << 8) | RETRO_DEVICE_JOYPAD)
+#define RETRO_DEVICE_WIIMOTE_CC ((4 << 8) | RETRO_DEVICE_JOYPAD)
+#define RETRO_DEVICE_WIIMOTE_CC_PRO ((5 << 8) | RETRO_DEVICE_JOYPAD)
+#define RETRO_DEVICE_GC_ON_WII ((6 << 8) | RETRO_DEVICE_JOYPAD)
+#define RETRO_DEVICE_REAL_WIIMOTE ((6 << 8) | RETRO_DEVICE_NONE)
+
 using namespace std;
 
 namespace py = pybind11;
@@ -224,21 +233,6 @@ struct keymap {
 	unsigned rk;
 };
 
-static struct keymap g_binds[] = {
-    { SDL_SCANCODE_X, RETRO_DEVICE_ID_JOYPAD_A },
-    { SDL_SCANCODE_Z, RETRO_DEVICE_ID_JOYPAD_B },
-    { SDL_SCANCODE_A, RETRO_DEVICE_ID_JOYPAD_Y },
-    { SDL_SCANCODE_S, RETRO_DEVICE_ID_JOYPAD_X },
-    { SDL_SCANCODE_UP, RETRO_DEVICE_ID_JOYPAD_UP },
-    { SDL_SCANCODE_DOWN, RETRO_DEVICE_ID_JOYPAD_DOWN },
-    { SDL_SCANCODE_LEFT, RETRO_DEVICE_ID_JOYPAD_LEFT },
-    { SDL_SCANCODE_RIGHT, RETRO_DEVICE_ID_JOYPAD_RIGHT },
-    { SDL_SCANCODE_RETURN, RETRO_DEVICE_ID_JOYPAD_START },
-    { SDL_SCANCODE_BACKSPACE, RETRO_DEVICE_ID_JOYPAD_SELECT },
-    { SDL_SCANCODE_Q, RETRO_DEVICE_ID_JOYPAD_L },
-    { SDL_SCANCODE_W, RETRO_DEVICE_ID_JOYPAD_R },
-    { 0, 0 }
-};
 
 static unsigned g_joy[RETRO_DEVICE_ID_JOYPAD_R3+1] = { 0 };
 
@@ -857,14 +851,6 @@ static void core_video_refresh(const void *data, unsigned width, unsigned height
 
 
 static void core_input_poll(void) {
-	// int i;
-    // g_kbd = SDL_GetKeyboardState(NULL);
-
-	// for (i = 0; g_binds[i].k || g_binds[i].rk; ++i)
-    //     g_joy[g_binds[i].rk] = g_kbd[g_binds[i].k];
-
-    // if (g_kbd[SDL_SCANCODE_ESCAPE])
-    //     running = false;
 }
 
 
