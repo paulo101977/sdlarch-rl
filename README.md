@@ -27,6 +27,7 @@ nmake
 
 ## TODO
 
+- [ ] Add Wii Remote to Dolphin
 - [ ] Cemu Core (It takes a lot of work to make the core libretro!!!) 
 - [x] Run Dolphin Core
 - [x] Run PCSX2 Core
@@ -44,6 +45,7 @@ nmake
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
