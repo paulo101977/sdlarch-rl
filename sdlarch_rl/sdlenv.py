@@ -10,6 +10,7 @@ import gc
 from _retro import RetroEmulator
 import ctypes
 import gzip
+import re
 
 class SDLEnv(gym.Env):
     """
@@ -190,13 +191,12 @@ class SDLEnv(gym.Env):
         
         return observation, self.old_info
 
-    def _get_memory_value(self, address: int) -> int:
+    def _get_memory_value(self, address: int, type: str, ram) -> float:
         """
         Read a value from the specified memory address.
         """
-        # TODO: implement memory reading more then one byte
-        data = self.em.get_ram()[address]
-        return data
+        size = int(re.findall(r'\d+', type)[0])
+        return float(np.frombuffer(ram[address:address + size], dtype=type)[0])
 
     def step(self, actions: np.ndarray):
         """
@@ -257,8 +257,14 @@ class SDLEnv(gym.Env):
         info = {
         }
 
+        ram = self.em.get_ram()
+
         for item in self.meta['variables']:
-            info[item['name']] = self._get_memory_value(int(item['address'], 16))
+            info[item['name']] = self._get_memory_value(
+                int(item['address'], 16), 
+                item['type'],
+                ram
+            )
        
         return info
 
