@@ -27,11 +27,11 @@ nmake
 
 ## TODO
 
+- [ ] Add Support to analog actions
 - [ ] Add Wii Remote to Dolphin
 - [ ] Cemu Core (It takes a lot of work to make the core libretro!!!) 
 - [x] Run Dolphin Core
 - [x] Run PCSX2 Core
-- [x] Load PCSX2 States
 - [ ] Compile cores in build
 - [ ] Tool to add games/map memory/save states, etc.
 - [x] Load state from file
@@ -45,6 +45,7 @@ nmake
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
