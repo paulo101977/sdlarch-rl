@@ -10,8 +10,8 @@ import pygame
 from IPython.display import Audio
 
 # env = make("GranTurismo3-Ps2")
-# env = make("NewSuperMarioBros-Wii")
-env = make("MarioDash-GC")
+env = make("NewSuperMarioBros-Wii")
+#env = make("MarioDash-GC")
 
 obs, info = env.reset()
 

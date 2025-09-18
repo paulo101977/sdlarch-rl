@@ -811,14 +811,18 @@ static bool core_environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char**)data;
+
+        #ifdef _WIN32
         static char absolute_path[1024];
-        if (_fullpath(absolute_path, ".\\system", sizeof(absolute_path)) != NULL) {
+        if (_fullpath(absolute_path, "\\system", sizeof(absolute_path)) != NULL) {
             *dir = absolute_path;
         } else {
             *dir = "./system";
         }
-        
         mkdir(absolute_path);
+        #else
+        *dir = "./system";
+        #endif
         return true;
     }
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
