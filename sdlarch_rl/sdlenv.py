@@ -65,7 +65,7 @@ class SDLEnv(gym.Env):
 
 
         if not os.path.isfile(game):
-            raise FileNotFoundError(f"ROM file not found: {rom}. Please ensure the path is correct.")
+            raise FileNotFoundError(f"ROM file not found: {game}. Please ensure the path is correct.")
 
         # starts the emulator main process
         self.em.init(core, game)

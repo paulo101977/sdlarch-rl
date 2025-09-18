@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <direct.h>
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
@@ -129,7 +130,7 @@ static const char *g_fshader_src =
 
 static map<string, const char*> s_envVariables = {
 	{ "pcsx2_enable_hw_hacks", "enabled" },
-	{ "pcsx2_renderer", "Software" },
+	{ "pcsx2_renderer", "OpenGL" },
 	{ "pcsx2_software_clut_render", "Normal" },
 	{ "pcsx2_fastboot", "enabled" },
     { "pcsx2_blending_accuracy", "Medium" },
@@ -167,7 +168,7 @@ static map<string, const char*> s_envVariables = {
 	{ "dolphin_log_level", "Info" },
 	{ "dolphin_cpu_clock_rate", "100%" },
     { "dolphin_enable_rumble", "disabled" },
-	// { "dolphin_renderer", "Software" },
+	{ "dolphin_renderer", "Hardware" },
 	// { "dolphin_fastmem", "disabled" },
 	// { "dolphin_dsp_hle", "enabled" },
 	// { "dolphin_dsp_jit", "enabled" },
@@ -178,9 +179,9 @@ static map<string, const char*> s_envVariables = {
 	// { "dolphin_progressive_scan", "disabled" },
 	// { "dolphin_pal60", "disabled" },
 	// { "dolphin_sensor_bar_position", "Bottom" },
-	// { "dolphin_wiimote_continuous_scanning", "disabled" },
+	{ "dolphin_wiimote_continuous_scanning", "disabled" },
 	// { "dolphin_mixer_rate", "32000" },
-	{ "dolphin_shader_compilation_mode", "sync" },
+	{ "dolphin_shader_compilation_mode", "a-sync Skip Rendering" },
 	// { "dolphin_max_anisotropy", "0" },
 	{ "dolphin_efb_scaled_copy", "enabled" },
 	{ "dolphin_efb_to_texture", "enabled" },
@@ -509,6 +510,8 @@ static void video_configure(const struct retro_game_geometry *geom) {
 
 	if (!g_win)
 		create_window(nwidth, nheight);
+    else
+        SDL_SetWindowSize(g_win, nwidth, nheight);
 
 	if (g_video.tex_id)
 		glDeleteTextures(1, &g_video.tex_id);
@@ -689,7 +692,6 @@ static void core_perf_log() {
     core_log(RETRO_LOG_INFO, "[timer] %s: %i - %i", g_retro.perf_counter_last->ident, g_retro.perf_counter_last->start, g_retro.perf_counter_last->total);
 }
 
-
 static bool core_environment(unsigned cmd, void *data) {
 	switch (cmd) {
     case RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE:
@@ -790,6 +792,13 @@ static bool core_environment(unsigned cmd, void *data) {
 
 		return video_set_pixel_format(*fmt);
 	}
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
+        unsigned *fmt = (unsigned*)data;
+        // *fmt = RETRO_HW_CONTEXT_OPENGL_CORE;
+        *fmt = RETRO_HW_CONTEXT_OPENGL;
+        return true;
+    }
+
     case RETRO_ENVIRONMENT_SET_HW_RENDER: {
         struct retro_hw_render_callback *hw = (struct retro_hw_render_callback*)data;
         hw->get_current_framebuffer = core_get_current_framebuffer;
@@ -802,7 +811,14 @@ static bool core_environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char**)data;
-        *dir = "./system";
+        static char absolute_path[1024];
+        if (_fullpath(absolute_path, ".\\system", sizeof(absolute_path)) != NULL) {
+            *dir = absolute_path;
+        } else {
+            *dir = "./system";
+        }
+        
+        mkdir(absolute_path);
         return true;
     }
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -1094,11 +1110,14 @@ void init(char *core, char *game) {
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
 
+    #ifndef _WIN32
     system("rm -rf ./system/User");
+    #endif
 
     g_video.hw.version_major = 4;
     g_video.hw.version_minor = 5;
-    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
+    // g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
+    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL;
     g_video.hw.context_reset   = noop;
     g_video.hw.context_destroy = noop;
 
@@ -1107,6 +1126,7 @@ void init(char *core, char *game) {
 
     // Load the core.
     core_load(core);
+    create_window(640, 480);
 
     // Load the game.
     core_load_game(game);
