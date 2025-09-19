@@ -15,6 +15,7 @@
 #include <pybind11/numpy.h>
 
 #ifdef _WIN32
+#include <direct.h>
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
@@ -59,6 +60,7 @@ bool running = true;
 const int N_BUTTONS = 16;
 const int MAX_PLAYERS = 2;
 static bool m_buttonMask[MAX_PLAYERS][N_BUTTONS]{};
+static std::map<std::string, std::string> g_variable_overrides;
 
 // Audio buffer; accumulated during run()
 static std::vector<int16_t> audioData;
@@ -130,7 +132,7 @@ static const char *g_fshader_src =
 
 static map<string, const char*> s_envVariables = {
 	{ "pcsx2_enable_hw_hacks", "enabled" },
-	{ "pcsx2_renderer", "Software" },
+	{ "pcsx2_renderer", "OpenGL" },
 	{ "pcsx2_software_clut_render", "Normal" },
 	{ "pcsx2_fastboot", "enabled" },
     { "pcsx2_blending_accuracy", "Medium" },
@@ -168,7 +170,7 @@ static map<string, const char*> s_envVariables = {
 	{ "dolphin_log_level", "Info" },
 	{ "dolphin_cpu_clock_rate", "100%" },
     { "dolphin_enable_rumble", "disabled" },
-	// { "dolphin_renderer", "Software" },
+	{ "dolphin_renderer", "Hardware" },
 	// { "dolphin_fastmem", "disabled" },
 	// { "dolphin_dsp_hle", "enabled" },
 	// { "dolphin_dsp_jit", "enabled" },
@@ -179,9 +181,9 @@ static map<string, const char*> s_envVariables = {
 	// { "dolphin_progressive_scan", "disabled" },
 	// { "dolphin_pal60", "disabled" },
 	// { "dolphin_sensor_bar_position", "Bottom" },
-	// { "dolphin_wiimote_continuous_scanning", "disabled" },
+	{ "dolphin_wiimote_continuous_scanning", "disabled" },
 	// { "dolphin_mixer_rate", "32000" },
-	{ "dolphin_shader_compilation_mode", "sync" },
+	{ "dolphin_shader_compilation_mode", "a-sync Skip Rendering" },
 	// { "dolphin_max_anisotropy", "0" },
 	{ "dolphin_efb_scaled_copy", "enabled" },
 	{ "dolphin_efb_to_texture", "enabled" },
@@ -510,6 +512,8 @@ static void video_configure(const struct retro_game_geometry *geom) {
 
 	if (!g_win)
 		create_window(nwidth, nheight);
+    else
+        SDL_SetWindowSize(g_win, nwidth, nheight);
 
 	if (g_video.tex_id)
 		glDeleteTextures(1, &g_video.tex_id);
@@ -690,24 +694,10 @@ static void core_perf_log() {
     core_log(RETRO_LOG_INFO, "[timer] %s: %i - %i", g_retro.perf_counter_last->ident, g_retro.perf_counter_last->start, g_retro.perf_counter_last->total);
 }
 
+
 void set_variable(const std::string& key, const std::string& value) {
-    if (!g_vars) {
-        c_printf("Warning: No variables have been set yet.\n");
-        return;
-    }
-
-    for (struct retro_variable *var = g_vars; var->key; var++) {
-        if (std::string(var->key) == key) {
-            free((void*)var->value);
-            var->value = strdup(value.c_str());
-            
-            g_variables_updated = true;
-            c_printf("Variable updated: %s = %s\n", key.c_str(), value.c_str());
-            return;
-        }
-    }
-
-    c_printf("Variable not founded: %s\n", key.c_str());
+    g_variable_overrides[key] = value;
+    printf("Set variable override: %s = %s\n", key.c_str(), value.c_str());
 }
 
 static bool core_environment(unsigned cmd, void *data) {
@@ -772,6 +762,16 @@ static bool core_environment(unsigned cmd, void *data) {
             SDL_assert(outvar->key && outvar->value);
         }
 
+        for (auto const& [key, val] : g_variable_overrides) {
+            for (struct retro_variable *var = g_vars; var->key; var++) {
+                if (std::string(var->key) == key) {
+                    free((void*)var->value);
+                    var->value = strdup(val.c_str());
+                    c_printf("Variable custom applied: %s = %s\n", key.c_str(), val.c_str());
+                }
+            }
+        }
+
         return true;
     }
 
@@ -811,6 +811,13 @@ static bool core_environment(unsigned cmd, void *data) {
 
 		return video_set_pixel_format(*fmt);
 	}
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
+        unsigned *fmt = (unsigned*)data;
+        // *fmt = RETRO_HW_CONTEXT_OPENGL_CORE;
+        *fmt = RETRO_HW_CONTEXT_OPENGL;
+        return true;
+    }
+
     case RETRO_ENVIRONMENT_SET_HW_RENDER: {
         struct retro_hw_render_callback *hw = (struct retro_hw_render_callback*)data;
         hw->get_current_framebuffer = core_get_current_framebuffer;
@@ -823,7 +830,18 @@ static bool core_environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char**)data;
+
+        #ifdef _WIN32
+        static char absolute_path[1024];
+        if (_fullpath(absolute_path, "\\system", sizeof(absolute_path)) != NULL) {
+            *dir = absolute_path;
+        } else {
+            *dir = "./system";
+        }
+        mkdir(absolute_path);
+        #else
         *dir = "./system";
+        #endif
         return true;
     }
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -1115,11 +1133,14 @@ void init(char *core, char *game) {
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
 
+    #ifndef _WIN32
     system("rm -rf ./system/User");
+    #endif
 
     g_video.hw.version_major = 4;
     g_video.hw.version_minor = 5;
-    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
+    // g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
+    g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL;
     g_video.hw.context_reset   = noop;
     g_video.hw.context_destroy = noop;
 
@@ -1128,6 +1149,7 @@ void init(char *core, char *game) {
 
     // Load the core.
     core_load(core);
+    create_window(640, 480);
 
     // Load the game.
     core_load_game(game);
@@ -1240,6 +1262,10 @@ struct RetroEmulator {
         return array;
     }
 
+    void setVariable(const std::string& key, const std::string& value) {
+        set_variable(key, value);
+    }
+
     py::array_t<uint8_t> getRAM() {
         return getMemoryByType(RETRO_MEMORY_SYSTEM_RAM);
     }
@@ -1268,6 +1294,16 @@ struct RetroEmulator {
 			setKey(player, key, mask.data()[key]);
 		}
 	}
+
+    void reloadGame() {
+        if (!gameLoaded || !m_romPath) {
+            c_printf("Warning: core or game not loaded.\n");
+            return;
+        }
+        c_printf("Reloading game to apply variables...\n");
+        unload_game();
+        core_load_game(m_romPath);
+    }
 };
 
 PYBIND11_MODULE(_retro, m) {
@@ -1286,5 +1322,7 @@ PYBIND11_MODULE(_retro, m) {
         .def("get_frame_rate", &RetroEmulator::getFrameRate)
         .def("get_audio_rate", &RetroEmulator::getAudioRate)
         .def("get_audio", &RetroEmulator::getAudio)
-        .def("run_alone", &RetroEmulator::runCoreAlone);
+        .def("run_alone", &RetroEmulator::runCoreAlone)
+        .def("set_variable", &RetroEmulator::setVariable, py::arg("key"), py::arg("value"))
+        .def("reload_game", &RetroEmulator::reloadGame);
 }

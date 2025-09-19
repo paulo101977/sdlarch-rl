@@ -23,6 +23,8 @@ third-party/
 sdlarch_rl/roms/**/rom.*
 *.egg-info
 videos/
+system/
+x64/
 
 # Visual Studio
 *.vcxproj*

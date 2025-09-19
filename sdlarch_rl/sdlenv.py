@@ -27,12 +27,13 @@ class SDLEnv(gym.Env):
         players = 1,
         env_id = 0,
         render_mode="rgb_array",
+        env_variables=None,
     ) -> None:
 
         self.em = RetroEmulator()
         self.players = players
         self.gamename = gamename
-
+        self.env_variables = env_variables
         
         gc.collect()
 
@@ -65,12 +66,18 @@ class SDLEnv(gym.Env):
 
 
         if not os.path.isfile(game):
-            raise FileNotFoundError(f"ROM file not found: {rom}. Please ensure the path is correct.")
+            raise FileNotFoundError(f"ROM file not found: {game}. Please ensure the path is correct.")
 
+        
+        # change environment variables
+        if self.env_variables:
+            for key, value in self.env_variables:
+                print(f"Set env variable {key} to {value}")
+                self.em.set_variable(key, value)
+            
         # starts the emulator main process
         self.em.init(core, game)
-
-        # FIXME: code below crashes on dolphin core
+        
         self.em.run()
 
         # TODO: other configurations for other cores
