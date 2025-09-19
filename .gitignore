@@ -16,6 +16,7 @@ cmake_install.cmake
 *.lib
 *.pdb
 *.pyd
+*.bin
 _retro.*
 third-party/
 *.a

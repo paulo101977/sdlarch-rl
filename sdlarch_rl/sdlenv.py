@@ -145,10 +145,16 @@ class SDLEnv(gym.Env):
         
     def _get_emu_name(self) -> str:
         gamename = self.gamename.lower()
+        print(f"Detected game: {gamename}")
+        ext = "_libretro."
         if gamename.endswith("-ps2"):
-            return "ps2/pcsx2_libretro."
+            return "ps2/pcsx2" + ext
+        # dolphin core is used for both wii and gamecube
         if gamename.endswith("-wii") or gamename.endswith("-gc"):
-            return "dolphin/dolphin_libretro."
+            return "dolphin/dolphin" + ext
+        # dreamcast and naomi use the same core (flycast)
+        if gamename.endswith("-dc") or gamename.endswith("-nm"):
+            return "flycast/flycast" + ext
         raise ValueError(f"Unsupported game type for game: {self.gamename}")
 
     def load_state(self, statename="default.state"):
