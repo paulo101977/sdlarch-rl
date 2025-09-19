@@ -51,6 +51,7 @@ static struct retro_audio_callback audio_callback;
 static char* m_romPath;
 static char* m_corePath;
 static bool gameLoaded = false;
+static bool g_variables_updated = false;
 
 static float g_scale = 1;
 bool running = true;
@@ -689,6 +690,25 @@ static void core_perf_log() {
     core_log(RETRO_LOG_INFO, "[timer] %s: %i - %i", g_retro.perf_counter_last->ident, g_retro.perf_counter_last->start, g_retro.perf_counter_last->total);
 }
 
+void set_variable(const std::string& key, const std::string& value) {
+    if (!g_vars) {
+        c_printf("Warning: No variables have been set yet.\n");
+        return;
+    }
+
+    for (struct retro_variable *var = g_vars; var->key; var++) {
+        if (std::string(var->key) == key) {
+            free((void*)var->value);
+            var->value = strdup(value.c_str());
+            
+            g_variables_updated = true;
+            c_printf("Variable updated: %s = %s\n", key.c_str(), value.c_str());
+            return;
+        }
+    }
+
+    c_printf("Variable not founded: %s\n", key.c_str());
+}
 
 static bool core_environment(unsigned cmd, void *data) {
 	switch (cmd) {
@@ -774,7 +794,8 @@ static bool core_environment(unsigned cmd, void *data) {
 
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
         bool *bval = (bool*)data;
-		*bval = false;
+		*bval = g_variables_updated;
+        g_variables_updated = false;
         return true;
     }
 	case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
