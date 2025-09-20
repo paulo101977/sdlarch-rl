@@ -192,6 +192,7 @@ static map<string, const char*> s_envVariables = {
 	// { "dolphin_bbox_enabled", "disabled" },
 	{ "dolphin_gpu_texture_decoding", "enabled" },
 	{ "dolphin_wait_for_shaders", "disabled" },
+    { "desmume_opengl_mode", "enabled" },
 	// { "dolphin_force_texture_filtering", "disabled" },
 	// { "dolphin_load_custom_textures", "disabled" },
 	// { "dolphin_cheats_enabled", "disabled" },
