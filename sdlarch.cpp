@@ -919,6 +919,30 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
     if (device == RETRO_DEVICE_JOYPAD && id < N_BUTTONS) {
         return m_buttonMask[port][id] ? 1 : 0;
     }
+
+    // FIXME: handle analog properly
+    if(device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_LEFT ) {
+        if(id == RETRO_DEVICE_ID_ANALOG_X) {
+            if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_LEFT] == 1) {
+                return -32767;
+            } else if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_RIGHT] == 1) {
+                return 32767;
+            } else {
+                return 0;
+            }
+        }
+
+        if(id == RETRO_DEVICE_ID_ANALOG_Y) {
+            if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_UP] == 1) {
+                return -32767;
+            } else if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_DOWN] == 1) {
+                return 32767;
+            } else {
+                return 0;
+            }
+        }
+        return 0;
+    }
     
 
     if (device == RETRO_DEVICE_ANALOG) {

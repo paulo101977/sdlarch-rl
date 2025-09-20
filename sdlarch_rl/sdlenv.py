@@ -155,6 +155,9 @@ class SDLEnv(gym.Env):
         # dreamcast and naomi use the same core (flycast)
         if gamename.endswith("-dc") or gamename.endswith("-nm"):
             return "flycast/flycast" + ext
+
+        if gamename.endswith("-n64"):
+            return "n64/mupen64plus_next" + ext
         raise ValueError(f"Unsupported game type for game: {self.gamename}")
 
     def load_state(self, statename="default.state"):
