@@ -1,0 +1,25 @@
+{
+    "savestate": "1",
+    "variables": [
+        {
+            "name": "lives",
+            "type": "u1",
+            "address": "0x00354e93"
+        },
+        {
+            "name": "x",
+            "type": ">f4",
+            "address": "0x015e4294"
+        },
+        {
+            "name": "y",
+            "type": ">f4",
+            "address": "0x0154c85c"
+        },
+        {
+            "name": "time",
+            "type": ">u2",
+            "address": "0x01547902"
+        }
+    ]
+}

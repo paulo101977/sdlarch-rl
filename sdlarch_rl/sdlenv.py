@@ -20,15 +20,18 @@ class SDLEnv(gym.Env):
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "video.frames_per_second": 60.0}
+    _instance_counter = 0
 
     def __init__(
         self, 
         gamename: str,
         players = 1,
-        env_id = 0,
+        env_id=None,
         render_mode="rgb_array",
         env_variables=None,
     ) -> None:
+
+        self.env_id = env_id
 
         self.em = RetroEmulator()
         self.players = players
@@ -76,7 +79,13 @@ class SDLEnv(gym.Env):
                 self.em.set_variable(key, value)
             
         # starts the emulator main process
-        self.em.init(core, game)
+        if "dolphin" in core:
+            if self.env_id is None or self.env_id == -1:
+                raise ValueError("Please provide env_id for dolphin core...")
+            print("Starting dolphin core...", core, game, self.env_id)
+            self.em.init(core, game, self.env_id)
+        else:
+            self.em.init(core, game)
         
         self.em.run()
 
@@ -215,6 +224,13 @@ class SDLEnv(gym.Env):
         """
         size = int(re.findall(r'\d+', type)[0])
         return float(np.frombuffer(ram[address:address + size], dtype=type)[0])
+    
+    def set_buttons(self, buttons: np.ndarray):
+        """
+        Set the button mapping for the emulator.
+        :param buttons: A numpy array representing the button mapping.
+        """
+        self.buttons = buttons
 
     def step(self, actions: np.ndarray):
         """

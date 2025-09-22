@@ -53,6 +53,7 @@ static char* m_romPath;
 static char* m_corePath;
 static bool gameLoaded = false;
 static bool g_variables_updated = false;
+static int env_id = -1;
 
 static float g_scale = 1;
 bool running = true;
@@ -193,6 +194,7 @@ static map<string, const char*> s_envVariables = {
 	{ "dolphin_gpu_texture_decoding", "enabled" },
 	{ "dolphin_wait_for_shaders", "disabled" },
     { "desmume_opengl_mode", "enabled" },
+    {" desmume_cpu_mode", "jit"},
 	// { "dolphin_force_texture_filtering", "disabled" },
 	// { "dolphin_load_custom_textures", "disabled" },
 	// { "dolphin_cheats_enabled", "disabled" },
@@ -832,17 +834,30 @@ static bool core_environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char**)data;
 
-        #ifdef _WIN32
+#ifdef _WIN32
         static char absolute_path[1024];
-        if (_fullpath(absolute_path, "\\system", sizeof(absolute_path)) != NULL) {
+        if (env_id >= 0) {
+            snprintf(absolute_path, sizeof(absolute_path), "\\system\\dolphin-%d", env_id);
+        } else {
+            snprintf(absolute_path, sizeof(absolute_path), "\\system");
+        }
+
+        if (_fullpath(absolute_path, absolute_path, sizeof(absolute_path)) != NULL) {
             *dir = absolute_path;
         } else {
             *dir = "./system";
         }
         mkdir(absolute_path);
-        #else
-        *dir = "./system";
-        #endif
+#else
+        static char system_path[1024];
+        if (env_id >= 0) {
+            snprintf(system_path, sizeof(system_path), "./system/dolphin-%d", env_id);
+        } else {
+            snprintf(system_path, sizeof(system_path), "./system");
+        }
+        *dir = system_path;
+        mkdir(system_path, 0777);
+#endif
         return true;
     }
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -1146,12 +1161,14 @@ void setKey(int port, int key, bool active) {
     m_buttonMask[port][key] = active; 
 }
 
-void init(char *core, char *game) {
+void init(char *core, char *game, int id) {
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS) < 0) {
     // if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS) < 0) {
         printf("SDL_Init failed: %s\n", SDL_GetError());
         die("Failed to initialize SDL");
     }
+
+    env_id = id;
 
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
     SDL_SetHint(SDL_HINT_RENDER_OPENGL_SHADERS, "1");
@@ -1231,8 +1248,8 @@ struct RetroEmulator {
 		return arr;
 	}
 
-    void initCore(char *core, char *game) {
-        init(core, game);
+    void initCore(char *core, char *game, int id) {
+        init(core, game, id);
     }
 
     void runCore() {
@@ -1343,7 +1360,7 @@ PYBIND11_MODULE(_retro, m) {
         .def("get_shape", &RetroEmulator::getShape)
         .def("get_ram", &RetroEmulator::getRAM)
         .def("close", &RetroEmulator::closeCore)
-        .def("init", &RetroEmulator::initCore, py::arg("core"), py::arg("game"))
+        .def("init", &RetroEmulator::initCore, py::arg("core"), py::arg("game"), py::arg("id")=-1)
         .def("get_frame_rate", &RetroEmulator::getFrameRate)
         .def("get_audio_rate", &RetroEmulator::getAudioRate)
         .def("get_audio", &RetroEmulator::getAudio)
