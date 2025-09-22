@@ -28,15 +28,18 @@ nmake
 ## TODO
 
 - [ ] Add Support to analog actions
-- [ ] Add Wii Remote to Dolphin
-- [ ] Cemu Core (It takes a lot of work to make the core libretro!!!) 
-- [x] Run Dolphin Core
+- [ ] Cemu Core (It takes a lot of work to make the core libretro!!!)
+- [ ] Run PPSSPP Core (PSP)
+- [ ] Run DesMume Core (Nintendo DS)
+- [ ] Run Citra Core (Nintendo 3DS)
+- [x] Run Dolphin Core (need pass ID for env)
+- [x] Run mupen64plus_next (n64) Core
 - [x] Run PCSX2 Core
 - [x] Run Flycast Core
 - [ ] Compile cores in build
 - [ ] Tool to add games/map memory/save states, etc.
 - [x] Load state from file
-- [ ] Gymnasium compatibility
+- [x] Gymnasium compatibility
 - [x] Load Emulator memory
 - [ ] Load games in the same standard as stable-retro
 - [ ] Improve performance
@@ -46,6 +49,7 @@ nmake
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
