@@ -194,12 +194,43 @@ static map<string, const char*> s_envVariables = {
 	{ "dolphin_gpu_texture_decoding", "enabled" },
 	{ "dolphin_wait_for_shaders", "disabled" },
     { "desmume_opengl_mode", "enabled" },
-    {" desmume_cpu_mode", "jit"},
+    { "desmume_cpu_mode", "jit"},
 	// { "dolphin_force_texture_filtering", "disabled" },
 	// { "dolphin_load_custom_textures", "disabled" },
 	// { "dolphin_cheats_enabled", "disabled" },
 	// { "dolphin_texture_cache_accuracy", "disabled" },
 	{ "dolphin_osd_enabled", "disabled" },
+    { "ppsspp_internal_resolution", "480x272" },
+    { "ppsspp_cpu_core", "jit" },
+    { "ppsspp_locked_cpu_speed", "off" },
+    { "ppsspp_language", "automatic" },
+    { "ppsspp_button_preference", "cross" },
+    { "ppsspp_rendering_mode", "buffered" },
+    { "ppsspp_gpu_hardware_transform", "enabled" },
+    { "ppsspp_texture_anisotropic_filtering", "off" },
+    { "ppsspp_spline_quality", "low" },
+    { "ppsspp_auto_frameskip", "disabled" },
+    { "ppsspp_frameskip", "0" },
+    { "ppsspp_frameskiptype", "number of frames" },
+    { "ppsspp_frame_duplication", "disabled" },
+    { "ppsspp_vertex_cache", "disabled" },
+    { "ppsspp_fast_memory", "enabled" },
+    { "ppsspp_block_transfer_gpu", "enabled" },
+    { "ppsspp_software_skinning", "enabled" },
+    { "ppsspp_lazy_texture_caching", "disabled" },
+    { "ppsspp_retain_changed_textures", "disabled" },
+    { "ppsspp_force_lag_sync", "disabled" },
+    { "ppsspp_disable_slow_framebuffer_effects", "disabled" },
+    { "ppsspp_lower_resolution_for_effects", "off" },
+    { "ppsspp_texture_scaling_level", "1" },
+    { "ppsspp_texture_scaling_type", "xbrz" },
+    { "ppsspp_texture_filtering", "auto" },
+    { "ppsspp_texture_deposterize", "disabled" },
+    { "ppsspp_texture_replacement", "disabled" },
+    { "ppsspp_io_threading", "enabled" },
+    { "ppsspp_io_timing_method", "Fast" },
+    { "ppsspp_ignore_bad_memory_access", "enabled" },
+    { "ppsspp_cheats", "disabled" },
 };
 
 
@@ -679,8 +710,8 @@ static void core_log(enum retro_log_level level, const char *fmt, ...) {
 	fprintf(stderr, "[%s] %s", levelstr[level], buffer);
 	fflush(stderr);
 
-	if (level == RETRO_LOG_ERROR)
-		exit(EXIT_FAILURE);
+	// if (level == RETRO_LOG_ERROR)
+	// 	exit(EXIT_FAILURE);
 }
 
 static uintptr_t core_get_current_framebuffer() {
@@ -836,6 +867,12 @@ static bool core_environment(unsigned cmd, void *data) {
 
 #ifdef _WIN32
         static char absolute_path[1024];
+        if (m_corePath && strstr(m_corePath, "ppsspp"))
+        {
+            c_printf("PPSSPP core system path\n");
+            *dir = "./system";
+            return true;
+        }
         if (env_id >= 0) {
             snprintf(absolute_path, sizeof(absolute_path), "\\system\\dolphin-%d", env_id);
         } else {

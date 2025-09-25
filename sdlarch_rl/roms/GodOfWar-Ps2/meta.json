@@ -1,0 +1,40 @@
+{
+    "savestate": "1",
+    "variables": [
+        {
+            "name": "velocity",
+            "type": ">f4",
+            "address": "0x01487780"
+        },
+        {
+            "name": "position",
+            "type": "u1",
+            "address": "0x0037ffa3"
+        },
+        {
+            "name": "current_lap",
+            "type": "u1",
+            "address": "0x0037ff63"
+        },
+        {
+            "name": "max_lap",
+            "type": "u1",
+            "address": "0x00d19f04"
+        },
+        {
+            "name": "reverse",
+            "type": "u1",
+            "address": "0x01199efd"
+        },
+        {
+            "name": "wrong_way_1",
+            "type": "u1",
+            "address": "0x010acf67"
+        },
+        {
+            "name": "wrong_way_2",
+            "type": "u1",
+            "address": "0x0113df65"
+        }
+    ]
+}

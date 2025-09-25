@@ -169,6 +169,8 @@ class SDLEnv(gym.Env):
             return "n64/mupen64plus_next" + ext
         if gamename.endswith("-nds"):
             return "nds/desmume" + ext
+        if gamename.endswith("-psp"):
+            return "psp/ppsspp" + ext
         raise ValueError(f"Unsupported game type for game: {self.gamename}")
 
     def load_state(self, statename="default.state"):

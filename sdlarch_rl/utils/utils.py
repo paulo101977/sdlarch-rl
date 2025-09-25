@@ -331,7 +331,7 @@ class HPInfoWrapper(gym.Wrapper):
 
         return obs, reward, terminated, truncated, info
 
-class SkipFrame(gym.Wrapper):
+class FrameSkip(gym.Wrapper):
     def __init__(self, env, skip):
         super().__init__(env)
         self._skip = skip
