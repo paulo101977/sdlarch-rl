@@ -77,6 +77,9 @@ class SDLEnv(gym.Env):
             for key, value in self.env_variables:
                 print(f"Set env variable {key} to {value}")
                 self.em.set_variable(key, value)
+
+        # We need flip the image on desmume
+        self.invert_img = "desmume" in core
             
         # starts the emulator main process
         if "dolphin" in core:
@@ -280,6 +283,11 @@ class SDLEnv(gym.Env):
         
         img = np.frombuffer(buffer, dtype=np.uint8)
         img = img.reshape((height, width, 3))[::-1]
+
+        # flip imaga
+        if self.invert_img:
+            img = img[::-1, :, :]
+
         self.img = img
         return self.img
 
