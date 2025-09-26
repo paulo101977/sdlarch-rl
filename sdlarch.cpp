@@ -673,7 +673,7 @@ static void video_refresh(const void *data, unsigned width, unsigned height, uns
 
     // SDL_GL_SwapWindow(g_win);
 
-    SDL_GL_MakeCurrent(g_win, g_ctx);
+    // SDL_GL_MakeCurrent(g_win, g_ctx);
     
     glBindFramebuffer(GL_FRAMEBUFFER, g_video.fbo_id);
     // glViewport(0, height, width, 0);
@@ -709,7 +709,7 @@ static void video_refresh(const void *data, unsigned width, unsigned height, uns
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     
-    SDL_GL_SwapWindow(g_win);
+    // SDL_GL_SwapWindow(g_win);
 }
 
 static void video_deinit() {
@@ -819,24 +819,24 @@ static bool core_environment(unsigned cmd, void *data) {
                 memcpy((char*)outvar->value, semicolon, first_pipe - semicolon);
                 ((char*)outvar->value)[first_pipe - semicolon] = '\0';
             } else {
-                outvar->value = strdup(semicolon);
+                outvar->value = _strdup(semicolon);
             }
 
-            outvar->key = strdup(invar->key);
+            outvar->key = _strdup(invar->key);
 
             if (s_envVariables.count(string(outvar->key))) {
                 // var->value = s_envVariables[string(var->key)];
-                outvar->value = strdup(s_envVariables[string(outvar->key)]);
+                outvar->value = _strdup(s_envVariables[string(outvar->key)]);
             }
 
             // if(!strcmp(outvar->key, "dolphin_renderer")) {
             //     free((void*)outvar->value);
-            //     outvar->value = strdup("Software");
+            //     outvar->value = _strdup("Software");
             // }
 
             // if(!strcmp(outvar->key, "pcsx2_renderer")) {
             //     free((void*)outvar->value);
-            //     outvar->value = strdup("Software");
+            //     outvar->value = _strdup("Software");
             // }
 
             c_printf("Variable: %s = %s\n", outvar->key, outvar->value);
@@ -848,7 +848,7 @@ static bool core_environment(unsigned cmd, void *data) {
             for (struct retro_variable *var = g_vars; var->key; var++) {
                 if (std::string(var->key) == key) {
                     free((void*)var->value);
-                    var->value = strdup(val.c_str());
+                    var->value = _strdup(val.c_str());
                     c_printf("Variable custom applied: %s = %s\n", key.c_str(), val.c_str());
                 }
             }
@@ -932,7 +932,7 @@ static bool core_environment(unsigned cmd, void *data) {
         } else {
             *dir = "./system";
         }
-        mkdir(absolute_path);
+        _mkdir(absolute_path);
 #else
         static char system_path[1024];
         if (env_id >= 0) {
@@ -1227,12 +1227,12 @@ void get_frame(uint8_t* buffer, int width, int height) {
 }
 
 void run() {
-    SDL_GL_MakeCurrent(g_win, g_ctx);
+    // SDL_GL_MakeCurrent(g_win, g_ctx);
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     audioData.clear();
     g_retro.retro_run();
-    SDL_GL_SwapWindow(g_win);
-    glFinish(); // ensure all OpenGL commands are done
+    // SDL_GL_SwapWindow(g_win);
+    // glFinish(); // ensure all OpenGL commands are done
 }
 
 // only for testing core without window
@@ -1264,12 +1264,13 @@ void init(char *core, char *game, int id) {
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
 
+    // Use proper way to delete the dolphin folder
     #ifndef _WIN32
     system("rm -rf ./system/User");
     #endif
 
-    m_romPath = strdup(game);
-    m_corePath = strdup(core);
+    m_romPath = _strdup(game);
+    m_corePath = _strdup(core);
 
     if(strstr(m_corePath, "desmume")) {
        invert_img = true;
@@ -1283,6 +1284,7 @@ void init(char *core, char *game, int id) {
     g_video.hw.context_reset   = noop;
     g_video.hw.context_destroy = noop;
 
+    // Initial context
     create_window(640, 480);
     // Load the core.
     core_load(core);
@@ -1292,7 +1294,6 @@ void init(char *core, char *game, int id) {
     core_load_game(game);
 
     // Configure the player input devices.
-    // g_retro.retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
     for(int i = 0; i < MAX_PLAYERS; i++) {
         g_retro.retro_set_controller_port_device(i, RETRO_DEVICE_JOYPAD);
     }
