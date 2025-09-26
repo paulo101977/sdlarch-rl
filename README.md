@@ -10,6 +10,7 @@ audio and basic input) features to run basic libretro cores and there's no UI
 or configuration support.
 
 ## Building
+First, remove any Makefile folders or files (CMakeCache.txt and CMakeFiles).
 
 ### Linux:
 
@@ -19,9 +20,12 @@ make
 ```
 
 ### Windows:
+Have Visual Studio Preview 2022 or later installed.
+
+With the Visual Studio cmd open:
 
 ```shell
-cmake .
+cmake . -G "NMake Makefiles"
 nmake
 ```
 
@@ -49,6 +53,7 @@ nmake
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
