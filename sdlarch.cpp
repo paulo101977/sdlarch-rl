@@ -53,6 +53,10 @@ static char* m_romPath;
 static char* m_corePath;
 static bool gameLoaded = false;
 static bool g_variables_updated = false;
+static std::vector<uint8_t> g_last_frame_buffer;
+static int g_last_frame_width = 0;
+static int g_last_frame_height = 0;
+static bool invert_img = false;
 static int env_id = -1;
 
 static float g_scale = 1;
@@ -193,8 +197,9 @@ static map<string, const char*> s_envVariables = {
 	// { "dolphin_bbox_enabled", "disabled" },
 	{ "dolphin_gpu_texture_decoding", "enabled" },
 	{ "dolphin_wait_for_shaders", "disabled" },
-    { "desmume_opengl_mode", "enabled" },
+    { "desmume_opengl_mode", "disabled" },
     { "desmume_cpu_mode", "jit"},
+    { "desmume_screens_layout", "top/bottom" },
 	// { "dolphin_force_texture_filtering", "disabled" },
 	// { "dolphin_load_custom_textures", "disabled" },
 	// { "dolphin_cheats_enabled", "disabled" },
@@ -444,7 +449,12 @@ static void init_framebuffer(int width, int height)
 
 
 static void resize_cb(int w, int h) {
-	glViewport(0, 0, w, h);
+    if(invert_img) {
+       glViewport(0, h, w, 0); 
+    } else {
+        glViewport(0, 0, w, h);
+    }
+	
 }
 
 
@@ -623,37 +633,59 @@ static bool video_set_pixel_format(unsigned format) {
 
 
 static void video_refresh(const void *data, unsigned width, unsigned height, unsigned pitch) {
-    if (!SDL_GL_GetCurrentContext()) {
-        if (g_win && g_ctx) {
-            SDL_GL_MakeCurrent(g_win, g_ctx);
-        }
-    }
+    // if (!SDL_GL_GetCurrentContext()) {
+    //     if (g_win && g_ctx) {
+    //         SDL_GL_MakeCurrent(g_win, g_ctx);
+    //     }
+    // }
 
     if( width != 0 && height != 0) {
         g_retro.width = width;
         g_retro.height = height; 
     }
-    if ((g_video.clip_w != width || g_video.clip_h != height) && (width != 0 && height != 0)) {
-        g_video.clip_h = height;
-        g_video.clip_w = width;
-        refresh_vertex_data();
-    }
+    // if ((g_video.clip_w != width || g_video.clip_h != height) && (width != 0 && height != 0)) {
+    //     g_video.clip_h = height;
+    //     g_video.clip_w = width;
+    //     refresh_vertex_data();
+    // }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glClear(GL_COLOR_BUFFER_BIT);
+
+    // if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+    //     // Hardware rendering
+    //     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
+    //     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    //     glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    // } else if (data && data != RETRO_HW_FRAME_BUFFER_VALID) {
+    //     // Software rendering
+    //     glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
+    //     glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / g_video.bpp);
+    //     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
+    //                     g_video.pixtype, g_video.pixfmt, data);
+
+    //     glUseProgram(g_shader.program);
+    //     glActiveTexture(GL_TEXTURE0);
+    //     glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
+    //     glBindVertexArray(g_shader.vao);
+    //     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // }
+
+    // SDL_GL_SwapWindow(g_win);
+
+    SDL_GL_MakeCurrent(g_win, g_ctx);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, g_video.fbo_id);
+    // glViewport(0, height, width, 0);
 
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
-        // Hardware rendering
         glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_video.fbo_id);
         glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    } else if (data && data != RETRO_HW_FRAME_BUFFER_VALID) {
-        // Software rendering
+    } else if (data) {
         glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
         glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / g_video.bpp);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
-                        g_video.pixtype, g_video.pixfmt, data);
-
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, g_video.pixtype, g_video.pixfmt, data);
         glUseProgram(g_shader.program);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
@@ -661,7 +693,23 @@ static void video_refresh(const void *data, unsigned width, unsigned height, uns
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
 
-    // SDL_GL_SwapWindow(g_win);
+    if (width > 0 && height > 0) {
+        size_t buffer_size = width * height * 3;
+        if (g_last_frame_buffer.size() != buffer_size) {
+            g_last_frame_buffer.resize(buffer_size);
+            g_last_frame_width = width;
+            g_last_frame_height = height;
+        }
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.fbo_id);
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, g_last_frame_buffer.data());
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    
+    SDL_GL_SwapWindow(g_win);
 }
 
 static void video_deinit() {
@@ -1159,19 +1207,23 @@ bool is_hardware_rendering() {
 }
 
 void get_frame(uint8_t* buffer, int width, int height) {
-    SDL_GL_MakeCurrent(g_win, g_ctx);
+    // SDL_GL_MakeCurrent(g_win, g_ctx);
 
-    if (is_hardware_rendering()) {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
-    } else {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    // if (is_hardware_rendering()) {
+    //     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
+    // } else {
+    //     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    // }
+
+    // glReadBuffer(GL_COLOR_ATTACHMENT0);
+    // glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    // glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+
+    // glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    if (!g_last_frame_buffer.empty() && width == g_last_frame_width && height == g_last_frame_height) {
+        memcpy(buffer, g_last_frame_buffer.data(), g_last_frame_buffer.size());
     }
-
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
 void run() {
@@ -1179,7 +1231,7 @@ void run() {
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     audioData.clear();
     g_retro.retro_run();
-    // SDL_GL_SwapWindow(g_win);
+    SDL_GL_SwapWindow(g_win);
     glFinish(); // ensure all OpenGL commands are done
 }
 
@@ -1216,6 +1268,14 @@ void init(char *core, char *game, int id) {
     system("rm -rf ./system/User");
     #endif
 
+    m_romPath = strdup(game);
+    m_corePath = strdup(core);
+
+    if(strstr(m_corePath, "desmume")) {
+       invert_img = true;
+    }
+    
+
     g_video.hw.version_major = 4;
     g_video.hw.version_minor = 5;
     // g_video.hw.context_type  = RETRO_HW_CONTEXT_OPENGL_CORE;
@@ -1223,12 +1283,10 @@ void init(char *core, char *game, int id) {
     g_video.hw.context_reset   = noop;
     g_video.hw.context_destroy = noop;
 
-    m_romPath = strdup(game);
-    m_corePath = strdup(core);
-
+    create_window(640, 480);
     // Load the core.
     core_load(core);
-    create_window(640, 480);
+    // create_window(640, 480);
 
     // Load the game.
     core_load_game(game);
