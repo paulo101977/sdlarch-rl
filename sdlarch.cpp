@@ -499,8 +499,10 @@ static void create_window(int width, int height) {
             die("Failed to initialize glad.");
     }
 
+#ifdef DEBUG
     fprintf(stderr, "GL_SHADING_LANGUAGE_VERSION: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
     fprintf(stderr, "GL_VERSION: %s\n", glGetString(GL_VERSION));
+#endif
 
 
     init_shaders();
@@ -728,7 +730,7 @@ static void video_deinit() {
 
 
 static void core_log(enum retro_log_level level, const char *fmt, ...) {
-    #ifdef DEBUG
+#ifdef DEBUG
 	char buffer[4096] = {0};
 	static const char * levelstr[] = { "dbg", "inf", "wrn", "err" };
 	va_list va;
@@ -745,7 +747,7 @@ static void core_log(enum retro_log_level level, const char *fmt, ...) {
 
 	// if (level == RETRO_LOG_ERROR)
 	// 	exit(EXIT_FAILURE);
-    #endif
+#endif
 }
 
 static uintptr_t core_get_current_framebuffer() {
@@ -1095,8 +1097,6 @@ static void core_load(const char *sofile) {
 
 	g_retro.retro_init();
 	g_retro.initialized = true;
-
-	puts("Core loaded");
 }
 
 static void unload_game() {

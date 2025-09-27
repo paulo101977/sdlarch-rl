@@ -29,6 +29,7 @@ class SDLEnv(gym.Env):
         env_id=None,
         render_mode="rgb_array",
         env_variables=None,
+        statename=None,
     ) -> None:
 
         self.env_id = env_id
@@ -85,7 +86,6 @@ class SDLEnv(gym.Env):
         if "dolphin" in core:
             if self.env_id is None or self.env_id == -1:
                 raise ValueError("Please provide env_id for dolphin core...")
-            print("Starting dolphin core...", core, game, self.env_id)
             self.em.init(core, game, self.env_id)
         else:
             self.em.init(core, game)
@@ -137,7 +137,8 @@ class SDLEnv(gym.Env):
         self.render_mode = render_mode
 
         self.initial_state = None
-        self.load_state()
+        self.statename = statename
+        self.load_state(self.statename)
 
     def _get_rom_file_name(self) -> str:
         directory_path = os.path.join(self.dirname, r"roms", f"{self.gamename}")
@@ -157,7 +158,6 @@ class SDLEnv(gym.Env):
         
     def _get_emu_name(self) -> str:
         gamename = self.gamename.lower()
-        print(f"Detected game: {gamename}")
         ext = "_libretro."
         if gamename.endswith("-ps2"):
             return "ps2/pcsx2" + ext
@@ -177,7 +177,16 @@ class SDLEnv(gym.Env):
         raise ValueError(f"Unsupported game type for game: {self.gamename}")
 
     def load_state(self, statename="default.state"):
+        """
+        Load an initial state
+        :param   statename: The state to be loaded.
+        """
         has_state = False
+
+        if statename is None:
+            print("statename is None setting to default state")
+            statename="default.state"
+
         if not statename.endswith(".state"):
             statename += ".state"
 
