@@ -29,6 +29,10 @@ cmake . -G "NMake Makefiles"
 nmake
 ```
 
+Notes:
+- SDLArch-RL needs (on windows) the DLLs SDL2.dll and msvcrt.dll in the project root folder.
+- SDLArch-RL creates the system folder in the project root on Linux and in the root of your driver on Windows (if running on the C drive, it will create c:\system). This folder should contain the bios and files needed for each Libretro core.
+
 ## TODO
 
 - [ ] Add Support to analog actions
@@ -53,6 +57,7 @@ nmake
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
