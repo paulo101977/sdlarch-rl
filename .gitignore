@@ -6,6 +6,7 @@ build/
 .vscode/
 CMakeCache.txt
 CMakeFiles/
+Makefile
 Slot 1/
 Slot 2/
 User/

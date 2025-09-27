@@ -59,7 +59,7 @@ static int g_last_frame_height = 0;
 static bool invert_img = false;
 static int env_id = -1;
 
-static float g_scale = 1;
+static int g_scale = 1;
 bool running = true;
 
 const int N_BUTTONS = 16;
@@ -176,34 +176,15 @@ static map<string, const char*> s_envVariables = {
 	{ "dolphin_cpu_clock_rate", "100%" },
     { "dolphin_enable_rumble", "disabled" },
 	{ "dolphin_renderer", "Hardware" },
-	// { "dolphin_fastmem", "disabled" },
-	// { "dolphin_dsp_hle", "enabled" },
-	// { "dolphin_dsp_jit", "enabled" },
-	// { "dolphin_cpu_core", "JIT64" },
-	// { "dolphin_language", "English" },
-	// { "dolphin_widescreen", "disabled" },
-	// { "dolphin_widescreen_hack", "disabled" },
-	// { "dolphin_progressive_scan", "disabled" },
-	// { "dolphin_pal60", "disabled" },
-	// { "dolphin_sensor_bar_position", "Bottom" },
 	{ "dolphin_wiimote_continuous_scanning", "disabled" },
-	// { "dolphin_mixer_rate", "32000" },
 	{ "dolphin_shader_compilation_mode", "a-sync Skip Rendering" },
-	// { "dolphin_max_anisotropy", "0" },
 	{ "dolphin_efb_scaled_copy", "enabled" },
 	{ "dolphin_efb_to_texture", "enabled" },
-	// { "dolphin_efb_to_vram", "disabled" },
-	// { "dolphin_fast_depth_calculation", "disabled" },
-	// { "dolphin_bbox_enabled", "disabled" },
 	{ "dolphin_gpu_texture_decoding", "enabled" },
 	{ "dolphin_wait_for_shaders", "disabled" },
     { "desmume_opengl_mode", "disabled" },
     { "desmume_cpu_mode", "jit"},
     { "desmume_screens_layout", "top/bottom" },
-	// { "dolphin_force_texture_filtering", "disabled" },
-	// { "dolphin_load_custom_textures", "disabled" },
-	// { "dolphin_cheats_enabled", "disabled" },
-	// { "dolphin_texture_cache_accuracy", "disabled" },
 	{ "dolphin_osd_enabled", "disabled" },
     { "ppsspp_internal_resolution", "480x272" },
     { "ppsspp_cpu_core", "jit" },
@@ -540,9 +521,9 @@ static void resize_to_aspect(double ratio, int sw, int sh, int *dw, int *dh) {
 		ratio = (double)sw / sh;
 
 	if ((float)sw / sh < 1)
-		*dw = *dh * ratio;
+		*dw = (int)(*dh * ratio);
 	else
-		*dh = *dw / ratio;
+		*dh = (int)(*dw / ratio);
 }
 
 
@@ -551,8 +532,8 @@ static void video_configure(const struct retro_game_geometry *geom) {
 
 	resize_to_aspect(geom->aspect_ratio, geom->base_width * 1, geom->base_height * 1, &nwidth, &nheight);
 
-	nwidth *= g_scale;
-	nheight *= g_scale;
+	nwidth *= (int)(g_scale);
+	nheight *= (int)(g_scale);
 
 	if (!g_win)
 		create_window(nwidth, nheight);
@@ -632,7 +613,7 @@ static bool video_set_pixel_format(unsigned format) {
 }
 
 
-static void video_refresh(const void *data, unsigned width, unsigned height, unsigned pitch) {
+static void video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
     // if (!SDL_GL_GetCurrentContext()) {
     //     if (g_win && g_ctx) {
     //         SDL_GL_MakeCurrent(g_win, g_ctx);
@@ -679,12 +660,12 @@ static void video_refresh(const void *data, unsigned width, unsigned height, uns
     // glViewport(0, height, width, 0);
 
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.hw.get_current_framebuffer());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)(g_video.hw.get_current_framebuffer()));
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_video.fbo_id);
         glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     } else if (data) {
         glBindTexture(GL_TEXTURE_2D, g_video.tex_id);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / g_video.bpp);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, ((int)pitch) / g_video.bpp);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, g_video.pixtype, g_video.pixfmt, data);
         glUseProgram(g_shader.program);
         glActiveTexture(GL_TEXTURE0);
@@ -1331,7 +1312,7 @@ struct RetroEmulator {
     }
 
 	int getAudioSamples() { 
-        return audioData.size() / 2; 
+        return (int)(audioData.size()) / 2; 
     }
 	const int16_t* getAudioData() {
         return audioData.data(); 

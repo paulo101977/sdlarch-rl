@@ -1,8 +1,34 @@
 cmake_minimum_required(VERSION 3.12)
-project(pcsx2_headless LANGUAGES C CXX)
+project(sdlarch_rl LANGUAGES C CXX)
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "
+    WARNING: Do not build from the source folder!
+    Please use a separate build folder:
+
+    use: 
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+    ")
+endif()
+
+# Define the default build type
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release)
 
 add_definitions(-DGLAD_GLAPI_EXPORT)
 add_definitions(-DGLAD_GLAPI_EXPORT_BUILD)
@@ -172,4 +198,26 @@ message(STATUS "Python extension suffix: ${PYTHON3_EXTENSION_SUFFIX}")
 
 # install(TARGETS _retro
 #     LIBRARY DESTINATION lib
+# )
+
+# copy artifacts fn
+function(copy_artifacts_target target_name)
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:${target_name}>
+            ${CMAKE_SOURCE_DIR}/
+        COMMENT "Copying ${target_name} to project root"
+    )
+endfunction()
+
+# apply to both targets
+copy_artifacts_target(pcsx2_headless)
+copy_artifacts_target(_retro)
+
+# add_custom_target(copy_all_artifacts
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#         ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${CMAKE_BUILD_TYPE}/*
+#         ${CMAKE_SOURCE_DIR}/
+#     COMMENT "Copying all artifacts to project root"
+#     DEPENDS pcsx2_headless _retro
 # )
