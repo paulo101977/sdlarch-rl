@@ -51,6 +51,7 @@ static const uint8_t *g_kbd = NULL;
 static struct retro_audio_callback audio_callback;
 static char* m_romPath;
 static char* m_corePath;
+static bool coreLoaded = false;
 static bool gameLoaded = false;
 static bool g_variables_updated = false;
 static std::vector<uint8_t> g_last_frame_buffer;
@@ -73,6 +74,7 @@ static retro_system_av_info avInfo = {};
 
 // log function that prints to python console
 void c_printf(const char* format, ...) {
+#ifdef DEBUG
     char buffer[256];
     va_list args;
     va_start(args, format);
@@ -80,6 +82,7 @@ void c_printf(const char* format, ...) {
     va_end(args);
     
     py::print(buffer);
+#endif
 }
 
 static struct {
@@ -725,6 +728,7 @@ static void video_deinit() {
 
 
 static void core_log(enum retro_log_level level, const char *fmt, ...) {
+    #ifdef DEBUG
 	char buffer[4096] = {0};
 	static const char * levelstr[] = { "dbg", "inf", "wrn", "err" };
 	va_list va;
@@ -741,6 +745,7 @@ static void core_log(enum retro_log_level level, const char *fmt, ...) {
 
 	// if (level == RETRO_LOG_ERROR)
 	// 	exit(EXIT_FAILURE);
+    #endif
 }
 
 static uintptr_t core_get_current_framebuffer() {
@@ -1239,6 +1244,7 @@ void init(char *core, char *game, int id) {
     }
 
     env_id = id;
+    coreLoaded = false;
 
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
     SDL_SetHint(SDL_HINT_RENDER_OPENGL_SHADERS, "1");
@@ -1274,6 +1280,8 @@ void init(char *core, char *game, int id) {
     // Load the game.
     core_load_game(game);
 
+    coreLoaded = true;
+
     // Configure the player input devices.
     for(int i = 0; i < MAX_PLAYERS; i++) {
         g_retro.retro_set_controller_port_device(i, RETRO_DEVICE_JOYPAD);
@@ -1301,128 +1309,140 @@ void closeEnv() {
 }
 #endif
 
-struct RetroEmulator {
+class RetroEmulator {
+
+    public:
+        RetroEmulator() {
+
+            if(coreLoaded) {
+            throw std::runtime_error(
+                    "Cannot create multiple emulator instances per process, make sure to call env.close() on each environment before creating a new one"
+                );
+            }
+            
+        }
     
-    double getFrameRate() { 
-        return avInfo.timing.fps; 
-    }
-
-    double getAudioRate() { 
-        return avInfo.timing.sample_rate;
-    }
-
-	int getAudioSamples() { 
-        return (int)(audioData.size()) / 2; 
-    }
-	const int16_t* getAudioData() {
-        return audioData.data(); 
-    }
-
-    py::array_t<int16_t> getAudio() {
-		py::array_t<int16_t> arr(py::array::ShapeContainer{ getAudioSamples(), 2 });
-		int16_t* data = arr.mutable_data();
-		memcpy(data, getAudioData(), getAudioSamples() * 4);
-		return arr;
-	}
-
-    void initCore(char *core, char *game, int id) {
-        init(core, game, id);
-    }
-
-    void runCore() {
-        run();
-    }
-
-    void runCoreAlone() {
-        runAlone();
-    }
-
-    void resetCore() {
-        reset();
-    }
-
-    void closeCore() {
-        closeEnv();
-    }
-
-    bool setState(py::bytes o) {
-        try {
-            return g_retro.retro_unserialize(PyBytes_AsString(o.ptr()), PyBytes_Size(o.ptr()));
-        } catch(...) {
-            return false;
+    
+        double getFrameRate() { 
+            return avInfo.timing.fps; 
         }
-		
-	}
 
-    py::bytes getState() {
-		size_t size = get_state_size();
-		py::bytes bytes(NULL, size);
-		g_retro.retro_serialize(PyBytes_AsString(bytes.ptr()), size);
-		return bytes;
-	}
-
-    py::array_t<uint8_t> getMemoryByType(unsigned type) {
-        // Get memory pointer and size from core
-        void* memory_data = g_retro.retro_get_memory_data(type);
-        size_t memory_size = g_retro.retro_get_memory_size(type);
-        
-        if (!memory_data || memory_size == 0) {
-            throw std::runtime_error("Invalid memory region or not available");
+        double getAudioRate() { 
+            return avInfo.timing.sample_rate;
         }
-        
-        // Create a numpy array that references the memory without copying
-        py::array_t<uint8_t> array(
-            {memory_size},                            // shape
-            {sizeof(uint8_t)},                        // strides
-            static_cast<uint8_t*>(memory_data),       // data pointer
-            py::capsule(memory_data, [](void* f) {})  // capsule (no deleter since we don't own the memory)
-        );
-        
-        return array;
-    }
 
-    void setVariable(const std::string& key, const std::string& value) {
-        set_variable(key, value);
-    }
-
-    py::array_t<uint8_t> getRAM() {
-        return getMemoryByType(RETRO_MEMORY_SYSTEM_RAM);
-    }
-
-    void getFrame(py::buffer buf, int width, int height) {
-        py::buffer_info info = buf.request();
-
-        uint8_t* buffer = static_cast<uint8_t*>(info.ptr);
-
-        get_frame(buffer, width, height);
-    }
-
-    py::tuple getShape() {
-        return py::make_tuple(g_retro.height, g_retro.width);
-    }
-
-    void setButtonMask(py::array_t<uint8_t> mask, unsigned player) {
-		if (mask.size() > N_BUTTONS) {
-			throw std::runtime_error("mask.size() > N_BUTTONS");
-		}
-		if (player >= MAX_PLAYERS) {
-			throw std::runtime_error("player >= MAX_PLAYERS");
-		}
-
-		for (int key = 0; key < mask.size(); ++key) {
-			setKey(player, key, mask.data()[key]);
-		}
-	}
-
-    void reloadGame() {
-        if (!gameLoaded || !m_romPath) {
-            c_printf("Warning: core or game not loaded.\n");
-            return;
+        int getAudioSamples() { 
+            return (int)(audioData.size()) / 2; 
         }
-        c_printf("Reloading game to apply variables...\n");
-        unload_game();
-        core_load_game(m_romPath);
-    }
+        const int16_t* getAudioData() {
+            return audioData.data(); 
+        }
+
+        py::array_t<int16_t> getAudio() {
+            py::array_t<int16_t> arr(py::array::ShapeContainer{ getAudioSamples(), 2 });
+            int16_t* data = arr.mutable_data();
+            memcpy(data, getAudioData(), getAudioSamples() * 4);
+            return arr;
+        }
+
+        void initCore(char *core, char *game, int id) {
+            init(core, game, id);
+        }
+
+        void runCore() {
+            run();
+        }
+
+        void runCoreAlone() {
+            runAlone();
+        }
+
+        void resetCore() {
+            reset();
+        }
+
+        void closeCore() {
+            closeEnv();
+        }
+
+        bool setState(py::bytes o) {
+            try {
+                return g_retro.retro_unserialize(PyBytes_AsString(o.ptr()), PyBytes_Size(o.ptr()));
+            } catch(...) {
+                return false;
+            }
+            
+        }
+
+        py::bytes getState() {
+            size_t size = get_state_size();
+            py::bytes bytes(NULL, size);
+            g_retro.retro_serialize(PyBytes_AsString(bytes.ptr()), size);
+            return bytes;
+        }
+
+        py::array_t<uint8_t> getMemoryByType(unsigned type) {
+            // Get memory pointer and size from core
+            void* memory_data = g_retro.retro_get_memory_data(type);
+            size_t memory_size = g_retro.retro_get_memory_size(type);
+            
+            if (!memory_data || memory_size == 0) {
+                throw std::runtime_error("Invalid memory region or not available");
+            }
+            
+            // Create a numpy array that references the memory without copying
+            py::array_t<uint8_t> array(
+                {memory_size},                            // shape
+                {sizeof(uint8_t)},                        // strides
+                static_cast<uint8_t*>(memory_data),       // data pointer
+                py::capsule(memory_data, [](void* f) {})  // capsule (no deleter since we don't own the memory)
+            );
+            
+            return array;
+        }
+
+        void setVariable(const std::string& key, const std::string& value) {
+            set_variable(key, value);
+        }
+
+        py::array_t<uint8_t> getRAM() {
+            return getMemoryByType(RETRO_MEMORY_SYSTEM_RAM);
+        }
+
+        void getFrame(py::buffer buf, int width, int height) {
+            py::buffer_info info = buf.request();
+
+            uint8_t* buffer = static_cast<uint8_t*>(info.ptr);
+
+            get_frame(buffer, width, height);
+        }
+
+        py::tuple getShape() {
+            return py::make_tuple(g_retro.height, g_retro.width);
+        }
+
+        void setButtonMask(py::array_t<uint8_t> mask, unsigned player) {
+            if (mask.size() > N_BUTTONS) {
+                throw std::runtime_error("mask.size() > N_BUTTONS");
+            }
+            if (player >= MAX_PLAYERS) {
+                throw std::runtime_error("player >= MAX_PLAYERS");
+            }
+
+            for (int key = 0; key < mask.size(); ++key) {
+                setKey(player, key, mask.data()[key]);
+            }
+        }
+
+        void reloadGame() {
+            if (!gameLoaded || !m_romPath) {
+                c_printf("Warning: core or game not loaded.\n");
+                return;
+            }
+            c_printf("Reloading game to apply variables...\n");
+            unload_game();
+            core_load_game(m_romPath);
+        }
 };
 
 PYBIND11_MODULE(_retro, m) {

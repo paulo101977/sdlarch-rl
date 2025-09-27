@@ -17,6 +17,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DDEBUG)
+    message(STATUS "Debug mode: DEBUG macro defined")
+else()
+    message(STATUS "Release mode: DEBUG macro not defined")
+endif()
+
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_STANDARD 17)
@@ -206,7 +213,7 @@ function(copy_artifacts_target target_name)
         COMMAND ${CMAKE_COMMAND} -E copy
             $<TARGET_FILE:${target_name}>
             ${CMAKE_SOURCE_DIR}/
-        COMMENT "Copying ${target_name} to project root"
+        COMMENT "Copying ${target_name} from ${CMAKE_BUILD_TYPE} to project root"
     )
 endfunction()
 
