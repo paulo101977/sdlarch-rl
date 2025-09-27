@@ -15,8 +15,8 @@ First, remove any Makefile folders or files (CMakeCache.txt and CMakeFiles).
 ### Linux:
 
 ```shell
-cmake .
-make
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
 ### Windows:
@@ -25,8 +25,8 @@ Have Visual Studio Preview 2022 or later installed.
 With the Visual Studio cmd open:
 
 ```shell
-cmake . -G "NMake Makefiles"
-nmake
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
 Notes:
@@ -57,6 +57,7 @@ Notes:
 If you are interested in our AI projects, visit our channel:
 
 [AI Brain](https://www.youtube.com/@AiBrainAi?sub_confirmation=1)
+
 
 
 
