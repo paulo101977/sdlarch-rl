@@ -1,4 +1,4 @@
-def reward(previous_state: dict, state: dict):
+def reward(previous_state: dict, state: dict) -> dict[float, bool]:
     """
     Calculate the reward based on the current and next state.
     
@@ -7,11 +7,13 @@ def reward(previous_state: dict, state: dict):
         state (dict): The current state of the environment.
     
     Returns:
-        tuple: A tuple containing the reward and a boolean indicating if the episode is done.
+        tuple: A tuple containing the float reward and a boolean indicating if the episode is done.
     """
     reward = 0.0
     done = False
     
+    if previous_state is None or state is None:
+        return reward, done
 
     # TODO: Implement specific reward logic for New Super Mario Bros
     # print(previous_state, state)

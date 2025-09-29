@@ -1,4 +1,3 @@
-
 import os
 import time
 import numpy as np
@@ -11,6 +10,7 @@ from _retro import RetroEmulator
 import ctypes
 import gzip
 import re
+import pygame
 
 class SDLEnv(gym.Env):
     """
@@ -38,7 +38,13 @@ class SDLEnv(gym.Env):
         self.players = players
         self.gamename = gamename
         self.env_variables = env_variables
+
+        # workaround to prevent frame freeze
+        self._last_frames = []  # frame buffer
+        self._max_identical_frames = 30
         
+        # try force gc free resources
+        gc.collect()
         gc.collect()
 
         if not hasattr(self, "spec"):
@@ -136,9 +142,45 @@ class SDLEnv(gym.Env):
 
         self.render_mode = render_mode
 
+        self._pygame_initialized = False
+        self._screen = None
+        self._clock = None
+        
+        if self.render_mode == "human":
+            self._init_pygame()
+
         self.initial_state = None
         self.statename = statename
         self.load_state(self.statename)
+
+    def _init_pygame(self):
+        """Initialize Pygame for rendering"""
+        try:
+            pygame.init()
+            # get the current shape of obs
+            height, width = self.em.get_shape()
+            
+            # Limit image size
+            max_width = 1200
+            max_height = 800
+            
+            # calculate aspect ration
+            aspect_ratio = width / height
+            if width > max_width:
+                width = max_width
+                height = int(width / aspect_ratio)
+            if height > max_height:
+                height = max_height
+                width = int(height * aspect_ratio)
+            
+            self._screen = pygame.display.set_mode((width, height))
+            pygame.display.set_caption(f"SDLEnv - {self.gamename}")
+            self._clock = pygame.time.Clock()
+            self._pygame_initialized = True
+            print(f"🎮 Pygame initialized: {width}x{height}")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize Pygame: {e}")
+            self._pygame_initialized = False
 
     def _get_rom_file_name(self) -> str:
         directory_path = os.path.join(self.dirname, r"roms", f"{self.gamename}")
@@ -211,6 +253,9 @@ class SDLEnv(gym.Env):
 
         super().reset(seed=seed, options=options)
 
+        if hasattr(self, '_last_frames'):
+            self._last_frames.clear()
+
         time.sleep(0.3)
 
         if self.initial_state:
@@ -246,6 +291,33 @@ class SDLEnv(gym.Env):
         """
         self.buttons = buttons
 
+    def _detect_frozen_frame(self, new_frame: np.ndarray):
+        """Fastest frame frozen detection"""
+        if not hasattr(self, '_last_frame_sample'):
+            # 100x more fast frozen frame detection
+            h, w = new_frame.shape[:2]
+            sample_h, sample_w = h // 10, w // 10  # 1% of pixels
+            self._last_frame_sample = new_frame[::10, ::10].copy()
+            self._identical_count = 0
+            return False
+        
+        # 1% of frame sample
+        current_sample = new_frame[::10, ::10]
+        
+        # fast compare frames
+        if np.array_equal(current_sample, self._last_frame_sample):
+            self._identical_count += 1
+        else:
+            self._identical_count = 0
+            self._last_frame_sample = current_sample.copy()
+        
+        # Threshold for trainning
+        if self._identical_count > 300:
+            self._last_frames.clear()
+            return True
+        
+        return False
+
     def step(self, actions: np.ndarray):
         """
         Execute one time step within the environment.
@@ -272,6 +344,12 @@ class SDLEnv(gym.Env):
 
         self.count += 1
 
+        # TODO fix the workaround
+        if self._detect_frozen_frame(self.img):
+            print("Frozen detected\n")
+            # self.em.reset()
+            return observation, 0, True, False, self.old_info
+
         if self.render_mode == "human":
             self.render()
 
@@ -281,8 +359,24 @@ class SDLEnv(gym.Env):
         """
         Close the controller and clean up resources.
         """
-        self.em.close()
-        pass
+        try:
+            if hasattr(self, 'em') and self.em is not None:
+                self.em.close()
+                self.em = None
+
+            if self._pygame_initialized:
+                pygame.quit()
+                self._pygame_initialized = False
+                self._screen = None
+                self._clock = None
+
+        except Exception as e:
+            print(f"Error during close: {e}")
+        finally:
+            # Force garbage collection
+            # try force gc free resources
+            gc.collect()
+            gc.collect()
 
     def _get_observation(self) -> np.ndarray:
         height, width = self.em.get_shape()
@@ -322,13 +416,43 @@ class SDLEnv(gym.Env):
         return info
 
     def render(self) -> np.ndarray | None:
-        if self.render_mode == "human":
-            if self.img is None:
-                return None
-
-            img = cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR)
-            cv2.imshow("env", img)
-            cv2.waitKey(1)
+        if self._pygame_initialized and self._screen is not None:
+            try:
+                # Process event of pygame
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        print("Window closed by user")
+                        raise KeyboardInterrupt("User closed window")
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            print("Escape pressed by user")
+                            raise KeyboardInterrupt("User pressed ESC")
+                
+                img_rgb = np.ascontiguousarray(self.img)
+                pygame_surface = pygame.surfarray.make_surface(img_rgb.swapaxes(0, 1))
+                
+                # resize screen
+                window_width, window_height = self._screen.get_size()
+                img_height, img_width = img_rgb.shape[:2]
+                
+                if img_width != window_width or img_height != window_height:
+                    pygame_surface = pygame.transform.scale(pygame_surface, (window_width, window_height))
+                
+                # draw on screen
+                self._screen.blit(pygame_surface, (0, 0))
+                pygame.display.flip()
+                
+                # fps
+                # self._clock.tick(60)
+                
+            except Exception as e:
+                print(f"Pygame render error: {e}")
+                # Try render a Pygame
+                try:
+                    self._init_pygame()
+                except:
+                    self._pygame_initialized = False
+        
             return None
         elif self.render_mode == "rgb_array":
             if self.img is None:

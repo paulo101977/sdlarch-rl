@@ -19,6 +19,30 @@ from PIL import Image
 import torch
 from gymnasium.spaces import MultiBinary, Discrete
 
+class TimeLimit(gym.Wrapper):
+    def __init__(self, env, max_steps=10_000):
+        super().__init__(env)
+        self.max_steps = max_steps
+
+        self.steps = 0
+
+    def reset(self, **kwargs):
+        self.steps = 0
+
+        return self.env.reset(**kwargs)
+        
+
+    def step(self, action):
+        
+        obs, reward, done, trunk, info = self.env.step(action)
+
+        self.steps += 1
+
+        if self.steps > self.max_steps:
+            done = True
+
+        return obs, reward, done, trunk, info
+
 class NormalizeObs(gym.ObservationWrapper):
     def __init__(self, env):
         super().__init__(env)
@@ -154,11 +178,11 @@ class RetroPettingZoo(AECEnv):
             for agent in self.agent_order:
                 yield agent
 
-    def reset(self, seed=None, options=None):
+    def reset(self, **kwargs):
         self.agents = self.players[:]
         self._agent_selector = self._agent_selector_func()
         self.current_agent = next(self._agent_selector)
-        obs, _ = self.env.reset()
+        obs, _ = self.env.reset(**kwargs)
         self.last_observation = obs
         return {agent: obs for agent in self.agents}, {}
 
@@ -338,11 +362,10 @@ class FrameSkip(gym.Wrapper):
 
     def step(self, action):
         total_reward = 0.0
-        done = False
         for i in range(self._skip):
             observation, reward, terminated, trunk, info = self.env.step(action)
             total_reward += reward
-            if terminated:
+            if terminated or trunk:
                 break
         return observation, total_reward, terminated, trunk, info
 
