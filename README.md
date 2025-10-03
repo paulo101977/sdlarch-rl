@@ -42,6 +42,8 @@ Notes:
 ## TODO
 
 - [ ] Create context without a window (Currently the window is hidden)
+- [ ] Vulkan context
+- [ ] DirectX context (d3d11, d3d12)
 - [ ] Tool to add games/map memory/save states, etc.
 - [ ] Add Support to analog actions
 - [ ] Cemu Core (It takes a lot of work to make the core libretro!!!)
@@ -61,6 +63,7 @@ Notes:
 - [x] Load Emulator memory
 - [x] Load games in the same standard as stable-retro
 - [ ] Improve performance
+
 
 
 
