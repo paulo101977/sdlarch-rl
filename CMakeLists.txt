@@ -26,6 +26,8 @@ endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+set(SRC_FOLDER ${CMAKE_SOURCE_DIR}/src)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -92,18 +94,19 @@ else()
     set(SDL2_FOUND TRUE)
 endif()
 
-add_library(glad STATIC glad.c)
+add_library(glad STATIC ${SRC_FOLDER}/glad.c)
 set_target_properties(glad PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
 add_library(pcsx2_headless SHARED
-    sdlarch.cpp
+    ${SRC_FOLDER}/sdlarch.cpp
 )
 
 pybind11_add_module(_retro
-    "sdlarch.cpp"
-    "glad.c"
+    ${SRC_FOLDER}/retroemulator.cpp
+    ${SRC_FOLDER}/sdlarch.cpp
+    ${SRC_FOLDER}/glad.c
 )
 
 target_include_directories(pcsx2_headless PRIVATE
@@ -185,7 +188,7 @@ else()
     )
 endif()
 
-set_source_files_properties(glad.c PROPERTIES
+set_source_files_properties(${SRC_FOLDER}/glad.c PROPERTIES
     LANGUAGE C
     C_STANDARD 11
 )
