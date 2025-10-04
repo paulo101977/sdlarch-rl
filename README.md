@@ -41,7 +41,6 @@ Notes:
 
 ## TODO
 
-- [ ] Create context without a window (Currently the window is hidden)
 - [ ] Vulkan context
 - [ ] DirectX context (d3d11, d3d12)
 - [ ] Tool to add games/map memory/save states, etc.
@@ -63,6 +62,7 @@ Notes:
 - [x] Load Emulator memory
 - [x] Load games in the same standard as stable-retro
 - [ ] Improve performance
+
 
 
 
