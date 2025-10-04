@@ -6,10 +6,13 @@ namespace py = pybind11;
 
 class RetroEmulator {
 
+    private:
+        SDLArch sdlarch;
+
     public:
         RetroEmulator() {
 
-            if(coreLoaded) {
+            if(SDLArch::coreLoaded) {
             throw std::runtime_error(
                     "Cannot create multiple emulator instances per process, make sure to call env.close() on each environment before creating a new one"
                 );
@@ -19,18 +22,18 @@ class RetroEmulator {
     
     
         double getFrameRate() { 
-            return avInfo.timing.fps; 
+            return  sdlarch.avInfo.timing.fps;
         }
 
         double getAudioRate() { 
-            return avInfo.timing.sample_rate;
+            return  sdlarch.avInfo.timing.sample_rate;
         }
 
         int getAudioSamples() { 
-            return (int)(audioData.size()) / 2; 
+            return (int)(SDLArch::audioData.size()) / 2; 
         }
         const int16_t* getAudioData() {
-            return audioData.data(); 
+            return SDLArch::audioData.data(); 
         }
 
         py::array_t<int16_t> getAudio() {
@@ -41,28 +44,28 @@ class RetroEmulator {
         }
 
         void initCore(char *core, char *game, int id) {
-            init(core, game, id);
+            sdlarch.init(core, game, id);
         }
 
         void runCore() {
-            run();
+            sdlarch.run();
         }
 
         void runCoreAlone() {
-            runAlone();
+            sdlarch.runAlone();
         }
 
         void resetCore() {
-            reset();
+            sdlarch.reset();
         }
 
         void closeCore() {
-            closeEnv();
+            sdlarch.closeEnv();
         }
 
         bool setState(py::bytes o) {
             try {
-                return g_retro.retro_unserialize(PyBytes_AsString(o.ptr()), PyBytes_Size(o.ptr()));
+                return SDLArch::g_retro.retro_unserialize(PyBytes_AsString(o.ptr()), PyBytes_Size(o.ptr()));
             } catch(...) {
                 return false;
             }
@@ -70,16 +73,16 @@ class RetroEmulator {
         }
 
         py::bytes getState() {
-            size_t size = get_state_size();
+            size_t size = sdlarch.get_state_size();
             py::bytes bytes(NULL, size);
-            g_retro.retro_serialize(PyBytes_AsString(bytes.ptr()), size);
+            SDLArch::g_retro.retro_serialize(PyBytes_AsString(bytes.ptr()), size);
             return bytes;
         }
 
         py::array_t<uint8_t> getMemoryByType(unsigned type) {
             // Get memory pointer and size from core
-            void* memory_data = g_retro.retro_get_memory_data(type);
-            size_t memory_size = g_retro.retro_get_memory_size(type);
+            void* memory_data =  SDLArch::g_retro.retro_get_memory_data(type);
+            size_t memory_size =  SDLArch::g_retro.retro_get_memory_size(type);
             
             if (!memory_data || memory_size == 0) {
                 throw std::runtime_error("Invalid memory region or not available");
@@ -97,7 +100,7 @@ class RetroEmulator {
         }
 
         void setVariable(const std::string& key, const std::string& value) {
-            set_variable(key, value);
+             sdlarch.set_variable(key, value);
         }
 
         py::array_t<uint8_t> getRAM() {
@@ -109,34 +112,34 @@ class RetroEmulator {
 
             uint8_t* buffer = static_cast<uint8_t*>(info.ptr);
 
-            get_frame(buffer, width, height);
+            sdlarch.get_frame(buffer, width, height);
         }
 
         py::tuple getShape() {
-            return py::make_tuple(g_retro.height, g_retro.width);
+            return py::make_tuple(SDLArch::g_retro.height, SDLArch::g_retro.width);
         }
 
         void setButtonMask(py::array_t<uint8_t> mask, unsigned player) {
-            if (mask.size() > N_BUTTONS) {
+            if (mask.size() >  sdlarch.N_BUTTONS) {
                 throw std::runtime_error("mask.size() > N_BUTTONS");
             }
-            if (player >= MAX_PLAYERS) {
+            if (player >=  sdlarch.MAX_PLAYERS) {
                 throw std::runtime_error("player >= MAX_PLAYERS");
             }
 
             for (int key = 0; key < mask.size(); ++key) {
-                set_key(player, key, mask.data()[key]);
+                sdlarch.set_key(player, key, mask.data()[key]);
             }
         }
 
         void reloadGame() {
-            if (!gameLoaded || !m_romPath) {
-                c_printf("Warning: core or game not loaded.\n");
+            if (!sdlarch.gameLoaded || !SDLArch::m_romPath) {
+               SDLArch::c_printf("Warning: core or game not loaded.\n");
                 return;
             }
-            c_printf("Reloading game to apply variables...\n");
-            unload_game();
-            core_load_game(m_romPath);
+            SDLArch::c_printf("Reloading game to apply variables...\n");
+            SDLArch::unload_game();
+            SDLArch::core_load_game(SDLArch::m_romPath);
         }
 };
 

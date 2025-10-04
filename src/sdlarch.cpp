@@ -19,10 +19,34 @@ using namespace std;
 // extern "C" {
 // #endif
 
+SDLArch::SDLArch() {
+}
 
+// Global static variables --------------------------------- //
+SDLArch::RetroContext SDLArch::g_retro{};
+SDL_Window* SDLArch::g_win = NULL;
+SDL_GLContext SDLArch::g_ctx = NULL;
+SDL_AudioDeviceID SDLArch::g_pcm = 0;
+int SDLArch::g_scale = 1;
+bool SDLArch::m_buttonMask[SDLArch::MAX_PLAYERS][SDLArch::N_BUTTONS] = {};
+bool SDLArch::is_desmume = false;
+int SDLArch::g_last_frame_width = 0;
+int SDLArch::g_last_frame_height = 0;
+bool SDLArch::g_variables_updated = false;
+int SDLArch::env_id = -1;
+bool SDLArch::gameLoaded = false;
+bool SDLArch::coreLoaded = false;
+retro_system_av_info SDLArch::avInfo = {};
+bool SDLArch::running = false;
+char* SDLArch::m_romPath = NULL;
+char* SDLArch::m_corePath = NULL;
+std::vector<uint8_t> SDLArch::g_last_frame_buffer{};
+std::vector<int16_t> SDLArch::audioData;
+std::map<std::string, std::string> SDLArch::g_variable_overrides{};
+// end Global static variables --------------------------------- //
 
 // log function that prints to python console
-void c_printf(const char* format, ...) {
+void SDLArch::c_printf(const char* format, ...) {
 #ifdef DEBUG
     char buffer[256];
     va_list args;
@@ -171,8 +195,6 @@ static map<string, const char*> s_envVariables = {
     { "ppsspp_cheats", "disabled" },
 };
 
-
-
 struct keymap {
 	unsigned k;
 	unsigned rk;
@@ -182,10 +204,10 @@ struct keymap {
 static unsigned g_joy[RETRO_DEVICE_ID_JOYPAD_R3+1] = { 0 };
 
 #define load_sym(V, S) do {\
-    if (!((*(void**)&V) = SDL_LoadFunction(g_retro.handle, #S))) \
+    if (!((*(void**)&V) = SDL_LoadFunction(SDLArch::g_retro.handle, #S))) \
         die("Failed to load symbol '" #S "'': %s", SDL_GetError()); \
 	} while (0)
-#define load_retro_sym(S) load_sym(g_retro.S, S)
+#define load_retro_sym(S) load_sym(SDLArch::g_retro.S, S)
 
 
 static void die(const char *fmt, ...) {
@@ -352,7 +374,7 @@ static void init_framebuffer(int width, int height)
 
 
 static void resize_cb(int w, int h) {
-    if(is_desmume) {
+    if(SDLArch::is_desmume) {
        glViewport(0, h, w, 0); 
     } else {
         glViewport(0, 0, w, h);
@@ -391,7 +413,7 @@ static void create_window(int width, int height) {
         die("Unsupported hw context %i. (only OPENGL, OPENGL_CORE and OPENGLES2 supported)", g_video.hw.context_type);
     }
 
-    g_win = SDL_CreateWindow(
+    SDLArch::g_win = SDL_CreateWindow(
         "sdlarch", 
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
@@ -400,14 +422,14 @@ static void create_window(int width, int height) {
         SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN
     );
 
-	if (!g_win)
+	if (!SDLArch::g_win)
         die("Failed to create window: %s", SDL_GetError());
 
-    g_ctx = SDL_GL_CreateContext(g_win);
+    SDLArch::g_ctx = SDL_GL_CreateContext(SDLArch::g_win);
 
-    SDL_GL_MakeCurrent(g_win, g_ctx);
+    SDL_GL_MakeCurrent(SDLArch::g_win, SDLArch::g_ctx);
 
-    if (!g_ctx)
+    if (!SDLArch::g_ctx)
         die("Failed to create OpenGL context: %s", SDL_GetError());
 
     if (g_video.hw.context_type == RETRO_HW_CONTEXT_OPENGLES2) {
@@ -427,7 +449,7 @@ static void create_window(int width, int height) {
     init_shaders();
 
     SDL_GL_SetSwapInterval(0); // disable vsync
-    SDL_GL_SwapWindow(g_win); // make apitrace output nicer
+    SDL_GL_SwapWindow(SDLArch::g_win); // make apitrace output nicer
 
     resize_cb(width, height);
 
@@ -456,13 +478,13 @@ static void video_configure(const struct retro_game_geometry *geom) {
 
 	resize_to_aspect(geom->aspect_ratio, geom->base_width * 1, geom->base_height * 1, &nwidth, &nheight);
 
-	nwidth *= (int)(g_scale);
-	nheight *= (int)(g_scale);
+	nwidth *= (int)(SDLArch::g_scale);
+	nheight *= (int)(SDLArch::g_scale);
 
-	if (!g_win)
+	if (!SDLArch::g_win)
 		create_window(nwidth, nheight);
     else
-        SDL_SetWindowSize(g_win, nwidth, nheight);
+        SDL_SetWindowSize(SDLArch::g_win, nwidth, nheight);
 
 	if (g_video.tex_id)
 		glDeleteTextures(1, &g_video.tex_id);
@@ -472,7 +494,7 @@ static void video_configure(const struct retro_game_geometry *geom) {
 	if (!g_video.pixfmt)
 		g_video.pixfmt = GL_UNSIGNED_SHORT_5_5_5_1;
 
-    SDL_SetWindowSize(g_win, nwidth, nheight);
+    SDL_SetWindowSize(SDLArch::g_win, nwidth, nheight);
 
 	glGenTextures(1, &g_video.tex_id);
 
@@ -501,8 +523,8 @@ static void video_configure(const struct retro_game_geometry *geom) {
 	g_video.clip_w = geom->base_width;
 	g_video.clip_h = geom->base_height;
 
-    g_retro.width = geom->base_width;
-    g_retro.height = geom->base_height;
+    SDLArch::g_retro.width = geom->base_width;
+    SDLArch::g_retro.height = geom->base_height;
 
 	refresh_vertex_data();
 
@@ -539,8 +561,8 @@ static bool video_set_pixel_format(unsigned format) {
 
 static void video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
     if( width != 0 && height != 0) {
-        g_retro.width = width;
-        g_retro.height = height; 
+        SDLArch::g_retro.width = width;
+        SDLArch::g_retro.height = height; 
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, g_video.fbo_id);
@@ -562,14 +584,14 @@ static void video_refresh(const void *data, unsigned width, unsigned height, siz
 
     if (width > 0 && height > 0) {
         size_t buffer_size = width * height * 3;
-        if (g_last_frame_buffer.size() != buffer_size) {
-            g_last_frame_buffer.resize(buffer_size);
-            g_last_frame_width = width;
-            g_last_frame_height = height;
+        if (SDLArch::g_last_frame_buffer.size() != buffer_size) {
+            SDLArch::g_last_frame_buffer.resize(buffer_size);
+            SDLArch::g_last_frame_width = width;
+            SDLArch::g_last_frame_height = height;
         }
         glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.fbo_id);
         glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, g_last_frame_buffer.data());
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, SDLArch::g_last_frame_buffer.data());
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_video.fbo_id);
@@ -599,12 +621,12 @@ static void video_deinit() {
     g_shader.vbo = 0;
     g_shader.program = 0;
 
-    SDL_GL_MakeCurrent(g_win, g_ctx);
-    SDL_GL_DeleteContext(g_ctx);
+    SDL_GL_MakeCurrent(SDLArch::g_win, SDLArch::g_ctx);
+    SDL_GL_DeleteContext(SDLArch::g_ctx);
 
-    g_ctx = NULL;
+    SDLArch::g_ctx = NULL;
 
-    SDL_DestroyWindow(g_win);
+    SDL_DestroyWindow(SDLArch::g_win);
 }
 
 
@@ -640,12 +662,12 @@ static uintptr_t core_get_current_framebuffer() {
  */
 static void core_perf_log() {
     // TODO: Use a linked list of counters, and loop through them all.
-    core_log(RETRO_LOG_INFO, "[timer] %s: %i - %i", g_retro.perf_counter_last->ident, g_retro.perf_counter_last->start, g_retro.perf_counter_last->total);
+    core_log(RETRO_LOG_INFO, "[timer] %s: %i - %i", SDLArch::g_retro.perf_counter_last->ident, SDLArch::g_retro.perf_counter_last->start, SDLArch::g_retro.perf_counter_last->total);
 }
 
 
-void set_variable(const std::string& key, const std::string& value) {
-    g_variable_overrides[key] = value;
+void SDLArch::set_variable(const std::string& key, const std::string& value) {
+    SDLArch::g_variable_overrides[key] = value;
     printf("Set variable override: %s = %s\n", key.c_str(), value.c_str());
 }
 
@@ -706,17 +728,17 @@ static bool core_environment(unsigned cmd, void *data) {
             //     outvar->value = _strdup("Software");
             // }
 
-            c_printf("Variable: %s = %s\n", outvar->key, outvar->value);
+            SDLArch::c_printf("Variable: %s = %s\n", outvar->key, outvar->value);
 
             SDL_assert(outvar->key && outvar->value);
         }
 
-        for (auto const& [key, val] : g_variable_overrides) {
+        for (auto const& [key, val] : SDLArch::g_variable_overrides) {
             for (struct retro_variable *var = g_vars; var->key; var++) {
                 if (std::string(var->key) == key) {
                     free((void*)var->value);
                     var->value = _strdup(val.c_str());
-                    c_printf("Variable custom applied: %s = %s\n", key.c_str(), val.c_str());
+                    SDLArch::c_printf("Variable custom applied: %s = %s\n", key.c_str(), val.c_str());
                 }
             }
         }
@@ -743,8 +765,8 @@ static bool core_environment(unsigned cmd, void *data) {
 
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
         bool *bval = (bool*)data;
-		*bval = g_variables_updated;
-        g_variables_updated = false;
+		*bval = SDLArch::g_variables_updated;
+        SDLArch::g_variables_updated = false;
         return true;
     }
 	case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
@@ -782,14 +804,14 @@ static bool core_environment(unsigned cmd, void *data) {
 
 #ifdef _WIN32
         static char absolute_path[1024];
-        if (m_corePath && strstr(m_corePath, "ppsspp"))
+        if (SDLArch::m_corePath && strstr(SDLArch::m_corePath, "ppsspp"))
         {
-            c_printf("PPSSPP core system path\n");
+            SDLArch::c_printf("PPSSPP core system path\n");
             *dir = "./system";
             return true;
         }
-        if (env_id >= 0) {
-            snprintf(absolute_path, sizeof(absolute_path), "\\system\\dolphin-%d", env_id);
+        if (SDLArch::env_id >= 0) {
+            snprintf(absolute_path, sizeof(absolute_path), "\\system\\dolphin-%d", SDLArch::env_id);
         } else {
             snprintf(absolute_path, sizeof(absolute_path), "\\system");
         }
@@ -802,8 +824,8 @@ static bool core_environment(unsigned cmd, void *data) {
         _mkdir(absolute_path);
 #else
         static char system_path[1024];
-        if (env_id >= 0) {
-            snprintf(system_path, sizeof(system_path), "./system/dolphin-%d", env_id);
+        if (SDLArch::env_id >= 0) {
+            snprintf(system_path, sizeof(system_path), "./system/dolphin-%d", SDLArch::env_id);
         } else {
             snprintf(system_path, sizeof(system_path), "./system");
         }
@@ -817,25 +839,25 @@ static bool core_environment(unsigned cmd, void *data) {
         g_video.clip_w = geom->base_width;
         g_video.clip_h = geom->base_height;
 
-        g_retro.width = geom->base_width;
-        g_retro.height = geom->base_height;
+        SDLArch::g_retro.width = geom->base_width;
+        SDLArch::g_retro.height = geom->base_height;
 
         // some cores call this before we even have a window
-        if (g_win) {
+        if (SDLArch::g_win) {
             refresh_vertex_data();
 
             int ow = 0, oh = 0;
             resize_to_aspect(geom->aspect_ratio, geom->base_width, geom->base_height, &ow, &oh);
 
-            ow *= g_scale;
-            oh *= g_scale;
+            ow *= SDLArch::g_scale;
+            oh *= SDLArch::g_scale;
 
-            SDL_SetWindowSize(g_win, ow, oh);
+            SDL_SetWindowSize(SDLArch::g_win, ow, oh);
         }
         return true;
     }
     case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME: {
-        // g_retro.supports_no_game = *(bool*)data;
+        // SDLArch::g_retro.supports_no_game = *(bool*)data;
         return true;
     }
     // case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: {
@@ -863,7 +885,7 @@ static void core_input_poll(void) {
 
 static int16_t core_input_state(unsigned port, unsigned device, unsigned index, unsigned id) {
 
-    if (port >= MAX_PLAYERS) return 0;
+    if (port >= SDLArch::MAX_PLAYERS) return 0;
 
     // analog button (treat as digital)
     if (index == RETRO_DEVICE_INDEX_ANALOG_BUTTON && device == RETRO_DEVICE_ANALOG) {
@@ -875,8 +897,8 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
     // convert to button mask (PCSX2 style)
     if (device == RETRO_DEVICE_JOYPAD && id == RETRO_DEVICE_ID_JOYPAD_MASK) {
         int16_t mask = 0;
-        for (int i = 0; i < N_BUTTONS; i++) {
-            if (m_buttonMask[port][i]) {
+        for (int i = 0; i < SDLArch::N_BUTTONS; i++) {
+            if (SDLArch::m_buttonMask[port][i]) {
                 mask |= (1 << i);
             }
         }
@@ -884,16 +906,16 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
     }
     
 
-    if (device == RETRO_DEVICE_JOYPAD && id < N_BUTTONS) {
-        return m_buttonMask[port][id] ? 1 : 0;
+    if (device == RETRO_DEVICE_JOYPAD && id < SDLArch::N_BUTTONS) {
+        return SDLArch::m_buttonMask[port][id] ? 1 : 0;
     }
 
     // FIXME: handle analog properly
     if(device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_LEFT ) {
         if(id == RETRO_DEVICE_ID_ANALOG_X) {
-            if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_LEFT] == 1) {
+            if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_LEFT] == 1) {
                 return -32767;
-            } else if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_RIGHT] == 1) {
+            } else if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_RIGHT] == 1) {
                 return 32767;
             } else {
                 return 0;
@@ -901,9 +923,9 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
         }
 
         if(id == RETRO_DEVICE_ID_ANALOG_Y) {
-            if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_UP] == 1) {
+            if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_UP] == 1) {
                 return -32767;
-            } else if(m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_DOWN] == 1) {
+            } else if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_DOWN] == 1) {
                 return 32767;
             } else {
                 return 0;
@@ -921,12 +943,12 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
 }
 
 static void core_audio_sample(int16_t left, int16_t right) {
-    audioData.push_back(left);
-	audioData.push_back(right);
+    SDLArch::audioData.push_back(left);
+	SDLArch::audioData.push_back(right);
 }
 
 static size_t core_audio_sample_batch(const int16_t *data, size_t frames) {
-	audioData.insert(audioData.end(), data, &data[frames * 2]);
+	SDLArch::audioData.insert(SDLArch::audioData.end(), data, &data[frames * 2]);
 	return frames;
 }
 
@@ -938,10 +960,10 @@ static void core_load(const char *sofile) {
 	void (*set_input_state)(retro_input_state_t) = NULL;
 	void (*set_audio_sample)(retro_audio_sample_t) = NULL;
 	void (*set_audio_sample_batch)(retro_audio_sample_batch_t) = NULL;
-	memset(&g_retro, 0, sizeof(g_retro));
-    g_retro.handle = SDL_LoadObject(sofile);
+	memset(&SDLArch::g_retro, 0, sizeof(SDLArch::g_retro));
+    SDLArch::g_retro.handle = SDL_LoadObject(sofile);
 
-	if (!g_retro.handle)
+	if (!SDLArch::g_retro.handle)
         die("Failed to load core: %s", SDL_GetError());
 
 	load_retro_sym(retro_init);
@@ -974,23 +996,23 @@ static void core_load(const char *sofile) {
 	set_audio_sample(core_audio_sample);
 	set_audio_sample_batch(core_audio_sample_batch);
 
-	g_retro.retro_init();
-	g_retro.initialized = true;
+	SDLArch::g_retro.retro_init();
+	SDLArch::g_retro.initialized = true;
 }
 
-void unload_game() {
-    g_retro.retro_unload_game();
+void SDLArch::unload_game() {
+    SDLArch::g_retro.retro_unload_game();
 }
 
 
-void core_load_game(const char *filename) {
+void SDLArch::core_load_game(const char *filename) {
 	// struct retro_system_av_info av = {0};
 	struct retro_system_info system = {0};
 	struct retro_game_info info = { filename, 0 };
     
-    if (gameLoaded) {
+    if (SDLArch::gameLoaded) {
         unload_game();
-        gameLoaded = false;
+        SDLArch::gameLoaded = false;
     }
 
     info.path = filename;
@@ -999,7 +1021,7 @@ void core_load_game(const char *filename) {
     info.size = 0;
 
     if (filename) {
-        g_retro.retro_get_system_info(&system);
+        SDLArch::g_retro.retro_get_system_info(&system);
 
         if (!system.need_fullpath) {
             SDL_RWops *file = SDL_RWFromFile(filename, "rb");
@@ -1026,13 +1048,13 @@ void core_load_game(const char *filename) {
         }
     }
 
-	if (!g_retro.retro_load_game(&info))
+	if (!SDLArch::g_retro.retro_load_game(&info))
 		die("The core failed to load the content.");
 
-	g_retro.retro_get_system_av_info(&avInfo);
-    gameLoaded = true;
+	SDLArch::g_retro.retro_get_system_av_info(&SDLArch::avInfo);
+    SDLArch::gameLoaded = true;
 
-	video_configure(&avInfo.geometry);
+	video_configure(&SDLArch::avInfo.geometry);
 
     if (info.data)
         SDL_free((void*)info.data);
@@ -1040,83 +1062,83 @@ void core_load_game(const char *filename) {
     // Now that we have the system info, set the window title.
     char window_title[255];
     snprintf(window_title, sizeof(window_title), "sdlarch %s %s", system.library_name, system.library_version);
-    SDL_SetWindowTitle(g_win, window_title);
+    SDL_SetWindowTitle(SDLArch::g_win, window_title);
 }
 
 static void core_unload() {
-	if (g_retro.initialized)
-		g_retro.retro_deinit();
+	if (SDLArch::g_retro.initialized)
+		SDLArch::g_retro.retro_deinit();
 
-	if (g_retro.handle)
-        SDL_UnloadObject(g_retro.handle);
+	if (SDLArch::g_retro.handle)
+        SDL_UnloadObject(SDLArch::g_retro.handle);
 }
 
 static void noop() {}
 
 
 bool get_state(void* data) {
-    size_t size = g_retro.retro_serialize_size();
-    return g_retro.retro_serialize(data, size);
+    size_t size = SDLArch::g_retro.retro_serialize_size();
+    return SDLArch::g_retro.retro_serialize(data, size);
 }
 
-size_t get_state_size() {
-    return g_retro.retro_serialize_size();
+size_t SDLArch::get_state_size() {
+    return SDLArch::g_retro.retro_serialize_size();
 }
 
 bool load_state(const void* data, size_t size) {
-    return g_retro.retro_unserialize(data, size);
+    return SDLArch::g_retro.retro_unserialize(data, size);
 }
 
 bool is_hardware_rendering() {
     return g_video.hw.context_type != RETRO_HW_CONTEXT_NONE;
 }
 
-void get_frame(uint8_t* buffer, int width, int height) {
-    if (!g_last_frame_buffer.empty() && width == g_last_frame_width && height == g_last_frame_height) {
-        memcpy(buffer, g_last_frame_buffer.data(), g_last_frame_buffer.size());
+void SDLArch::get_frame(uint8_t* buffer, int width, int height) {
+    if (!SDLArch::g_last_frame_buffer.empty() && width == SDLArch::g_last_frame_width && height == SDLArch::g_last_frame_height) {
+        memcpy(buffer, SDLArch::g_last_frame_buffer.data(), SDLArch::g_last_frame_buffer.size());
     }
 }
 
-void run() {
-    g_last_frame_buffer.clear();
+void SDLArch::run() {
+    SDLArch::g_last_frame_buffer.clear();
     
-    audioData.clear();
-    g_retro.retro_run();
+    SDLArch::audioData.clear();
+    SDLArch::g_retro.retro_run();
 }
 
 // only for testing core without window
-void runAlone() {
-    g_retro.retro_run();
+void SDLArch::runAlone() {
+    SDLArch::g_retro.retro_run();
 }
 
-void reset() {
-    memset(m_buttonMask, 0, sizeof(m_buttonMask));
+void SDLArch::reset() {
+    memset(SDLArch::m_buttonMask, 0, sizeof(SDLArch::m_buttonMask));
 
     // restore context
-	if (g_win && g_ctx) {
-        SDL_GL_MakeCurrent(g_win, g_ctx);
+	if (SDLArch::g_win && SDLArch::g_ctx) {
+        SDL_GL_MakeCurrent(SDLArch::g_win, SDLArch::g_ctx);
     }
 
-    g_retro.retro_reset();
+    SDLArch::g_retro.retro_reset();
     
     // clear framebuffer
-    g_last_frame_buffer.clear();
+    SDLArch::g_last_frame_buffer.clear();
     
 }
 
-void set_key(int port, int key, bool active) { 
-    m_buttonMask[port][key] = active; 
+void SDLArch::set_key(int port, int key, bool active) { 
+    SDLArch::m_buttonMask[port][key] = active; 
 }
 
-void init(char *core, char *game, int id) {
+void SDLArch::init(char *core, char *game, int id) {
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS) < 0) {
     // if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS) < 0) {
         printf("SDL_Init failed: %s\n", SDL_GetError());
         die("Failed to initialize SDL");
     }
 
-    env_id = id;
-    coreLoaded = false;
+    SDLArch::env_id = id;
+    SDLArch::coreLoaded = false;
 
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
     SDL_SetHint(SDL_HINT_RENDER_OPENGL_SHADERS, "1");
@@ -1128,11 +1150,11 @@ void init(char *core, char *game, int id) {
     system("rm -rf ./system/User");
     #endif
 
-    m_romPath = _strdup(game);
-    m_corePath = _strdup(core);
+    SDLArch::m_romPath = _strdup(game);
+    SDLArch::m_corePath = _strdup(core);
 
-    if(strstr(m_corePath, "desmume")) {
-       is_desmume = true;
+    if(strstr(SDLArch::m_corePath, "desmume")) {
+       SDLArch::is_desmume = true;
     }
     
 
@@ -1152,31 +1174,31 @@ void init(char *core, char *game, int id) {
     // Load the game.
     core_load_game(game);
 
-    coreLoaded = true;
+    SDLArch::coreLoaded = true;
 
     // Configure the player input devices.
-    for(int i = 0; i < MAX_PLAYERS; i++) {
-        g_retro.retro_set_controller_port_device(i, RETRO_DEVICE_JOYPAD);
+    for(int i = 0; i < SDLArch::MAX_PLAYERS; i++) {
+        SDLArch::g_retro.retro_set_controller_port_device(i, RETRO_DEVICE_JOYPAD);
     }
 
-    SDL_GL_MakeCurrent(g_win, g_ctx);
+    SDL_GL_MakeCurrent(SDLArch::g_win, SDLArch::g_ctx);
 }
 
-void closeEnv() {
-    if(coreLoaded) {
+void SDLArch::closeEnv() {
+    if(SDLArch::coreLoaded) {
        core_unload(); 
     }
 
 	video_deinit();
-    gameLoaded = false;
-    coreLoaded = false;
+    SDLArch::gameLoaded = false;
+    SDLArch::coreLoaded = false;
 
-    if (g_win) {
-        g_win = NULL;
+    if (SDLArch::g_win) {
+        SDLArch::g_win = NULL;
     }
     
-    if (g_ctx) {
-        g_ctx = NULL;
+    if (SDLArch::g_ctx) {
+        SDLArch::g_ctx = NULL;
     }
 
     if (g_vars) {
@@ -1188,8 +1210,8 @@ void closeEnv() {
     }
 
     SDL_Quit();
-    audioData.clear();
-    g_last_frame_buffer.clear();
+    SDLArch::audioData.clear();
+    SDLArch::g_last_frame_buffer.clear();
 }
 
 // #ifdef __cplusplus
