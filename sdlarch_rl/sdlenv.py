@@ -206,6 +206,7 @@ class SDLEnv(gym.Env):
         # dolphin core is used for both wii and gamecube
         if gamename.endswith("-wii") or gamename.endswith("-gc"):
             return "dolphin/dolphin" + ext
+            # return "dolphin/dolphin_new" + ext
         # dreamcast and naomi use the same core (flycast)
         if gamename.endswith("-dc") or gamename.endswith("-nm"):
             return "flycast/flycast" + ext
