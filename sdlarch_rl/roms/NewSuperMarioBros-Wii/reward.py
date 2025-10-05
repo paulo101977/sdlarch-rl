@@ -15,8 +15,6 @@ def reward(previous_state: dict, state: dict) -> dict[float, bool]:
     if previous_state is None or state is None:
         return reward, done
 
-    # TODO: Implement specific reward logic for New Super Mario Bros
-    # print(previous_state, state)
     max_speed = 19
     max_x = 6681.0
 
