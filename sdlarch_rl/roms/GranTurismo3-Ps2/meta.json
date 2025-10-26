@@ -30,6 +30,14 @@
             "name": "wrong_way",
             "type": "u1",
             "address": "0x01FBCC5C"
+        }, {
+            "name": "collision",
+            "type": "u1",
+            "address": "0x01FC76E8"
+        }, {
+            "name": "outside_percentage",
+            "type": "<f4",
+            "address": "0x01FBC870"
         }
     ]
 }

@@ -203,6 +203,10 @@ class SDLEnv(gym.Env):
         ext = "_libretro."
         if gamename.endswith("-ps2"):
             return "ps2/pcsx2" + ext
+        if gamename.endswith("-snes"):
+            return "snes/snes9x" + ext
+        if gamename.endswith("-ps1"):
+            return "ps1/pcsx_rearmed" + ext
         # dolphin core is used for both wii and gamecube
         if gamename.endswith("-wii") or gamename.endswith("-gc"):
             return "dolphin/dolphin" + ext
@@ -387,6 +391,10 @@ class SDLEnv(gym.Env):
         
         img = np.frombuffer(buffer, dtype=np.uint8)
         img = img.reshape((height, width, 3))[::-1]
+
+        if self.meta and 'crop' in self.meta:
+            crop = self.meta['crop']
+            img = img[crop['top']:height - crop['bottom'], crop['left']:width - crop['right'], :]
 
         # flip imaga
         if self.invert_img:

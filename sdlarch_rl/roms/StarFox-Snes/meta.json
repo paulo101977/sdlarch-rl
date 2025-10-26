@@ -1,0 +1,11 @@
+{
+    "crop": {
+        "bottom": 18,
+        "left": 16,
+        "right": 16,
+        "top": 16
+    },
+    "savestate": "1",
+    "variables": [
+    ]
+}

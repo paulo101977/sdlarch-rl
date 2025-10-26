@@ -413,19 +413,25 @@ static void create_window(int width, int height) {
         die("Unsupported hw context %i. (only OPENGL, OPENGL_CORE and OPENGLES2 supported)", g_video.hw.context_type);
     }
 
-    SDLArch::g_win = SDL_CreateWindow(
-        "sdlarch", 
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        width, 
-        height, 
-        SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN
-    );
+    if(!SDLArch::g_win) {
+        SDLArch::g_win = SDL_CreateWindow(
+            "sdlarch", 
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            width, 
+            height, 
+            SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN
+        );
+    }
+    
 
 	if (!SDLArch::g_win)
         die("Failed to create window: %s", SDL_GetError());
 
-    SDLArch::g_ctx = SDL_GL_CreateContext(SDLArch::g_win);
+    if(!SDLArch::g_ctx) {
+        SDLArch::g_ctx = SDL_GL_CreateContext(SDLArch::g_win);
+    }
+    
 
     SDL_GL_MakeCurrent(SDLArch::g_win, SDLArch::g_ctx);
 
@@ -474,17 +480,26 @@ static void resize_to_aspect(double ratio, int sw, int sh, int *dw, int *dh) {
 
 
 static void video_configure(const struct retro_game_geometry *geom) {
-	int nwidth, nheight;
+	int nwidth, nheight, scale;
 
-	resize_to_aspect(geom->aspect_ratio, geom->base_width * 1, geom->base_height * 1, &nwidth, &nheight);
+    scale = (int)(SDLArch::g_scale);
 
-	nwidth *= (int)(SDLArch::g_scale);
-	nheight *= (int)(SDLArch::g_scale);
+	resize_to_aspect(
+        geom->aspect_ratio, 
+        geom->base_width * scale, 
+        geom->base_height * scale, 
+        &nwidth, 
+        &nheight
+    );
+
+	nwidth *= scale;
+	nheight *= scale;
 
 	if (!SDLArch::g_win)
 		create_window(nwidth, nheight);
-    else
+    else {
         SDL_SetWindowSize(SDLArch::g_win, nwidth, nheight);
+    }
 
 	if (g_video.tex_id)
 		glDeleteTextures(1, &g_video.tex_id);
@@ -494,7 +509,7 @@ static void video_configure(const struct retro_game_geometry *geom) {
 	if (!g_video.pixfmt)
 		g_video.pixfmt = GL_UNSIGNED_SHORT_5_5_5_1;
 
-    SDL_SetWindowSize(SDLArch::g_win, nwidth, nheight);
+    // SDL_SetWindowSize(SDLArch::g_win, nwidth, nheight);
 
 	glGenTextures(1, &g_video.tex_id);
 
@@ -526,6 +541,9 @@ static void video_configure(const struct retro_game_geometry *geom) {
     SDLArch::g_retro.width = geom->base_width;
     SDLArch::g_retro.height = geom->base_height;
 
+    SDL_SetWindowSize(SDLArch::g_win, geom->base_width, geom->base_height);
+    resize_cb(geom->base_width, geom->base_height);
+    
 	refresh_vertex_data();
 
     if (g_video.hw.context_reset) {
@@ -852,7 +870,9 @@ static bool core_environment(unsigned cmd, void *data) {
             ow *= SDLArch::g_scale;
             oh *= SDLArch::g_scale;
 
-            SDL_SetWindowSize(SDLArch::g_win, ow, oh);
+            SDL_SetWindowSize(SDLArch::g_win, geom->base_width, geom->base_height);
+
+            resize_cb(geom->base_width, geom->base_height);
         }
         return true;
     }
@@ -1169,7 +1189,7 @@ void SDLArch::init(char *core, char *game, int id) {
     create_window(640, 480);
     // Load the core.
     core_load(core);
-    // create_window(640, 480);
+    create_window(640, 480);
 
     // Load the game.
     core_load_game(game);
