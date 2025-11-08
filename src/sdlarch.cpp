@@ -193,11 +193,9 @@ static map<string, const char*> s_envVariables = {
     { "ppsspp_io_timing_method", "Fast" },
     { "ppsspp_ignore_bad_memory_access", "enabled" },
     { "ppsspp_cheats", "disabled" },
-};
-
-struct keymap {
-	unsigned k;
-	unsigned rk;
+    { "citra_is_new_3ds", "New 3DS" },
+    { "citra_render_touchscreen", "enabled" },
+    { "citra_layout_option", "Single Screen Only"},
 };
 
 

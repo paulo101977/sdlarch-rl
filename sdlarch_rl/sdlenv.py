@@ -14,7 +14,7 @@ import pygame
 
 class SDLEnv(gym.Env):
     """
-    PCSX2 environment class
+    SDL environment class
 
     Provides a Gym interface to classic video games
     """
@@ -203,6 +203,8 @@ class SDLEnv(gym.Env):
         ext = "_libretro."
         if gamename.endswith("-ps2"):
             return "ps2/pcsx2" + ext
+        if gamename.endswith("-3ds"):
+            return "3ds/citra" + ext
         if gamename.endswith("-snes"):
             return "snes/snes9x" + ext
         if gamename.endswith("-ps1"):
