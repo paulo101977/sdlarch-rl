@@ -13,8 +13,9 @@ class RetroEmulator {
         RetroEmulator() {
 
             if(SDLArch::coreLoaded) {
-            throw std::runtime_error(
-                    "Cannot create multiple emulator instances per process, make sure to call env.close() on each environment before creating a new one"
+                throw std::runtime_error(
+                    "Cannot create multiple emulator instances per process, make sure to "
+                    "call env.close() on each environment before creating a new one"
                 );
             }
             
@@ -77,6 +78,10 @@ class RetroEmulator {
             py::bytes bytes(NULL, size);
             SDLArch::g_retro.retro_serialize(PyBytes_AsString(bytes.ptr()), size);
             return bytes;
+        }
+
+        void* getMemoryPointer() {
+            return SDLArch::g_retro.retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
         }
 
         py::array_t<uint8_t> getMemoryByType(unsigned type) {
@@ -161,5 +166,6 @@ PYBIND11_MODULE(_retro, m) {
         .def("get_audio", &RetroEmulator::getAudio)
         .def("run_alone", &RetroEmulator::runCoreAlone)
         .def("set_variable", &RetroEmulator::setVariable, py::arg("key"), py::arg("value"))
-        .def("reload_game", &RetroEmulator::reloadGame);
+        .def("reload_game", &RetroEmulator::reloadGame)
+        .def("get_memory_pointer", &RetroEmulator::getMemoryPointer);
 }

@@ -88,6 +88,7 @@ public:
 	static int g_last_frame_width;
 	static int g_last_frame_height;
 	static bool is_desmume;
+	static bool is_citra;
 	static int env_id;
 
 	static int g_scale;

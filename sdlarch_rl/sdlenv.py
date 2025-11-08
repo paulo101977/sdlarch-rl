@@ -11,6 +11,7 @@ import ctypes
 import gzip
 import re
 import pygame
+from typing import List, Dict
 
 class SDLEnv(gym.Env):
     """
@@ -28,7 +29,7 @@ class SDLEnv(gym.Env):
         players = 1,
         env_id=None,
         render_mode="rgb_array",
-        env_variables=None,
+        env_variables:List[Dict[str, str]] =None,
         statename=None,
     ) -> None:
 
@@ -81,9 +82,13 @@ class SDLEnv(gym.Env):
         
         # change environment variables
         if self.env_variables:
-            for key, value in self.env_variables:
-                print(f"Set env variable {key} to {value}")
-                self.em.set_variable(key, value)
+            for item in self.env_variables:
+                keys = item.keys()
+
+                for key in keys:
+                    value = item[key]
+                    print(f"Set env variable {key} to {value}")
+                    self.em.set_variable(key, value)
 
         # We need flip the image on desmume
         self.invert_img = "desmume" in core

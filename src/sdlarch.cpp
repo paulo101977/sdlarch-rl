@@ -30,6 +30,7 @@ SDL_AudioDeviceID SDLArch::g_pcm = 0;
 int SDLArch::g_scale = 1;
 bool SDLArch::m_buttonMask[SDLArch::MAX_PLAYERS][SDLArch::N_BUTTONS] = {};
 bool SDLArch::is_desmume = false;
+bool SDLArch::is_citra = false;
 int SDLArch::g_last_frame_width = 0;
 int SDLArch::g_last_frame_height = 0;
 bool SDLArch::g_variables_updated = false;
@@ -928,6 +929,30 @@ static int16_t core_input_state(unsigned port, unsigned device, unsigned index, 
         return SDLArch::m_buttonMask[port][id] ? 1 : 0;
     }
 
+    // Citra uses the right analog stick to move the mouse cursor on the screen
+    if(SDLArch::is_citra && device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_RIGHT) {
+        if(id == RETRO_DEVICE_ID_ANALOG_X) {
+            if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_LEFT] == 1) {
+                return -32767;
+            } else if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_RIGHT] == 1) {
+                return 32767;
+            } else {
+                return 0;
+            }
+        }
+
+        if(id == RETRO_DEVICE_ID_ANALOG_Y) {
+            if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_UP] == 1) {
+                return -32767;
+            } else if(SDLArch::m_buttonMask[port][RETRO_DEVICE_ID_JOYPAD_DOWN] == 1) {
+                return 32767;
+            } else {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     // FIXME: handle analog properly
     if(device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_LEFT ) {
         if(id == RETRO_DEVICE_ID_ANALOG_X) {
@@ -1173,6 +1198,10 @@ void SDLArch::init(char *core, char *game, int id) {
 
     if(strstr(SDLArch::m_corePath, "desmume")) {
        SDLArch::is_desmume = true;
+    }
+
+    if(strstr(SDLArch::m_corePath, "citra")) {
+       SDLArch::is_citra = true;
     }
     
 
