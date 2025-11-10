@@ -1,5 +1,20 @@
 {
     "savestate": "1",
     "variables": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
     ]
 }

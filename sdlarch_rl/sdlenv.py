@@ -26,10 +26,10 @@ class SDLEnv(gym.Env):
     def __init__(
         self, 
         gamename: str,
-        players = 1,
-        env_id=None,
+        players:int=1,
+        env_id:int=None,
         render_mode="rgb_array",
-        env_variables:List[Dict[str, str]] =None,
+        env_variables:List[Dict[str, str]]=None,
         statename=None,
     ) -> None:
 
@@ -39,10 +39,6 @@ class SDLEnv(gym.Env):
         self.players = players
         self.gamename = gamename
         self.env_variables = env_variables
-
-        # workaround to prevent frame freeze
-        self._last_frames = []  # frame buffer
-        self._max_identical_frames = 30
         
         # try force gc free resources
         gc.collect()
@@ -182,9 +178,9 @@ class SDLEnv(gym.Env):
             pygame.display.set_caption(f"SDLEnv - {self.gamename}")
             self._clock = pygame.time.Clock()
             self._pygame_initialized = True
-            print(f"🎮 Pygame initialized: {width}x{height}")
+            print(f"Pygame initialized: {width}x{height}")
         except Exception as e:
-            print(f"⚠️ Failed to initialize Pygame: {e}")
+            print(f"Failed to initialize Pygame: {e}")
             self._pygame_initialized = False
 
     def _get_rom_file_name(self) -> str:
@@ -259,14 +255,11 @@ class SDLEnv(gym.Env):
 
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         """
-        Reset the controller and ensure the PCSX2 emulator is started.
+        Reset the controller and ensure the current emulator is started.
         :return: A tuple containing the next state and additional info.
         """
 
         super().reset(seed=seed, options=options)
-
-        if hasattr(self, '_last_frames'):
-            self._last_frames.clear()
 
         time.sleep(0.3)
 
@@ -303,33 +296,6 @@ class SDLEnv(gym.Env):
         """
         self.buttons = buttons
 
-    def _detect_frozen_frame(self, new_frame: np.ndarray):
-        """Fastest frame frozen detection"""
-        if not hasattr(self, '_last_frame_sample'):
-            # 100x more fast frozen frame detection
-            h, w = new_frame.shape[:2]
-            sample_h, sample_w = h // 10, w // 10  # 1% of pixels
-            self._last_frame_sample = new_frame[::10, ::10].copy()
-            self._identical_count = 0
-            return False
-        
-        # 1% of frame sample
-        current_sample = new_frame[::10, ::10]
-        
-        # fast compare frames
-        if np.array_equal(current_sample, self._last_frame_sample):
-            self._identical_count += 1
-        else:
-            self._identical_count = 0
-            self._last_frame_sample = current_sample.copy()
-        
-        # Threshold for trainning
-        if self._identical_count > 300:
-            self._last_frames.clear()
-            return True
-        
-        return False
-
     def step(self, actions: np.ndarray):
         """
         Execute one time step within the environment.
@@ -355,12 +321,6 @@ class SDLEnv(gym.Env):
         self.old_info = info
 
         self.count += 1
-
-        # TODO fix the workaround
-        if self._detect_frozen_frame(self.img):
-            print("Frozen detected\n")
-            # self.em.reset()
-            return observation, 0, True, False, self.old_info
 
         if self.render_mode == "human":
             self.render()
