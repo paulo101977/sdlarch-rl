@@ -1,5 +1,4 @@
 import os
-import sys
 from sdlarch_rl.sdlenv import SDLEnv
 from sdlarch_rl.utils.discretizer import MainDiscretizer
 
@@ -16,7 +15,7 @@ __all__ = [
 ]
 
 
-def make(game, **kwargs):
+def make(game, render_mode="rgb_array", **kwargs):
     """
     Create a Gym environment for the specified game
     """

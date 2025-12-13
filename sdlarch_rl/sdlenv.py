@@ -1,9 +1,7 @@
 import os
-import time
 import numpy as np
 import gymnasium as gym
 import json
-import cv2
 import importlib.util as import_util
 import gc
 from _retro import RetroEmulator
@@ -21,7 +19,6 @@ class SDLEnv(gym.Env):
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "video.frames_per_second": 60.0}
-    _instance_counter = 0
 
     def __init__(
         self, 
@@ -75,6 +72,10 @@ class SDLEnv(gym.Env):
         if not os.path.isfile(game):
             raise FileNotFoundError(f"ROM file not found: {game}. Please ensure the path is correct.")
 
+        def get_wrapper_attr(self, attr_name):
+            if hasattr(self, attr_name):
+                return getattr(self, attr_name)
+            return None
         
         # change environment variables
         if self.env_variables:
@@ -139,8 +140,6 @@ class SDLEnv(gym.Env):
         spec.loader.exec_module(module)
         self.reward_fn = module.reward
 
-        self.count = 0
-
         self.render_mode = render_mode
 
         self._pygame_initialized = False
@@ -149,6 +148,8 @@ class SDLEnv(gym.Env):
         
         if self.render_mode == "human":
             self._init_pygame()
+
+        self._current_state_name = None
 
         self.initial_state = None
         self.statename = statename
@@ -245,7 +246,14 @@ class SDLEnv(gym.Env):
         if not has_state:
             print(f"State file not found: {state_path}. Starting without initial state.")
             return
-        
+
+        if statename and statename.endswith(".state"):
+            statename = statename.replace(".state", "")
+
+        self._current_state_name = None
+
+        if statename and self.meta and 'states' in self.meta and statename in self.meta['states']:
+            self._current_state_name = statename
 
         with gzip.open(
             state_path,
@@ -261,8 +269,6 @@ class SDLEnv(gym.Env):
 
         super().reset(seed=seed, options=options)
 
-        time.sleep(0.3)
-
         if self.initial_state:
             self.em.run()
             self.em.set_state(self.initial_state)
@@ -275,8 +281,6 @@ class SDLEnv(gym.Env):
         self.em.run()
 
         observation = self._get_observation()
-
-        self.count = 0
 
         self.old_info = self._memory_to_info()
         
@@ -306,7 +310,6 @@ class SDLEnv(gym.Env):
         if self.img is None:
             raise RuntimeError("Please call env.reset() before env.step()")
 
-        # TODO: set buttons for all players
         for player in range(self.players):
             self.em.set_button_mask(actions, player)
 
@@ -319,8 +322,6 @@ class SDLEnv(gym.Env):
         reward, done = self._get_reward(self.old_info, info)
 
         self.old_info = info
-
-        self.count += 1
 
         if self.render_mode == "human":
             self.render()
@@ -363,7 +364,7 @@ class SDLEnv(gym.Env):
             crop = self.meta['crop']
             img = img[crop['top']:height - crop['bottom'], crop['left']:width - crop['right'], :]
 
-        # flip imaga
+        # flip image
         if self.invert_img:
             img = img[::-1, :, :]
 
@@ -381,6 +382,25 @@ class SDLEnv(gym.Env):
         }
 
         ram = self.em.get_ram()
+
+        # ready default memory
+        if 'default' in self.meta:
+            for item in self.meta['default']:
+                info[item['name']] = self._get_memory_value(
+                    int(item['address'], 16), 
+                    item['type'],
+                    ram
+                )
+
+        # ready memory from saved state
+        if self._current_state_name and self._current_state_name in self.meta:
+            for item in self.meta[self._current_state_name]:
+                info[item['name']] = self._get_memory_value(
+                    int(item['address'], 16), 
+                    item['type'],
+                    ram
+                )
+            return info
 
         for item in self.meta['variables']:
             info[item['name']] = self._get_memory_value(

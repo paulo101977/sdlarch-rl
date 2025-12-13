@@ -67,7 +67,7 @@ class ExcludeButtonsWrapper(gym.ActionWrapper):
             self.excluded_indices = [self._find_button_index(b) for b in excluded_buttons]
 
             if any(idx is None for idx in self.excluded_indices):
-                raise ValueError("Todos os botões excluídos devem estar em button_names.")
+                raise ValueError("All deleted buttons must be in button_names.")
 
         elif isinstance(env.action_space, Discrete):
             if not hasattr(env, 'combo_array'):
@@ -356,18 +356,30 @@ class HPInfoWrapper(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
 class FrameSkip(gym.Wrapper):
-    def __init__(self, env, skip):
+    def __init__(self, env, skip:int, stochastic:bool = False):
         super().__init__(env)
-        self._skip = skip
+
+        self._skip = skip # reference value
+        self.skip = skip # multable value
+        self._stochastic = stochastic
+
+    def reset(self, **kwargs):
+
+        if self._stochastic and self._skip >= 2:
+            self.skip = np.random.randint(2, self._skip)
+
+        obs = self.env.reset(**kwargs)
+
+        return obs
 
     def step(self, action):
-        total_reward = 0.0
-        for i in range(self._skip):
+        reward = 0.0
+
+        for i in range(self.skip):
             observation, reward, terminated, trunk, info = self.env.step(action)
-            total_reward += reward
             if terminated or trunk:
                 break
-        return observation, total_reward, terminated, trunk, info
+        return observation, reward, terminated, trunk, info
 
 def get_latest_model(path):
     models = list(path.glob("best_model_*"))

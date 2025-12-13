@@ -1,6 +1,242 @@
 {
     "savestate": "1",
+    "states": [
+        "ryu_ken_very_easy",
+        "ryu_ken_easy",
+        "ryu_ken_easy_alternate",
+        "ryu_ken_medium_original",
+        "ryu_ken_medium_alternate",
+        "ryu_ken_medium_hard_original",
+        "ryu_ken_medium_hard_alternate",
+        "ryu_ken_hard_original",
+        "ryu_ken_hard_alternate",
+        "ryu_ken_very_hard_original",
+        "ryu_ken_very_hard_alternate",
+        "ryu_ken_hardest_original",
+        "ryu_ken_hardest_alternate"
+    ],
     "variables": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_very_easy": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "6E86338"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "6E9D83C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "6E9D89C"
+        }
+    ],
+    "ryu_ken_easy": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_easy_alternate": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_medium_original": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_medium_alternate": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C50E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_medium_hard_original": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "6E86338"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "6E9D83C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "6E9D89C"
+        }
+    ],
+    "ryu_ken_medium_hard_alternate": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_hard_original": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_hard_alternate": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_very_hard_original": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "0x665C10E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_very_hard_alternate": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "665C50E"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "0x6E9DC3C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "0x6E9DC9C"
+        }
+    ],
+    "ryu_ken_hardest_original": [
+        {
+            "name": "time",
+            "type": "u1",
+            "address": "6E86338"
+        },
+        {
+            "name": "player1",
+            "type": "<f4",
+            "address": "6E9D83C"
+        },
+        {
+            "name": "player2",
+            "type": "<f4",
+            "address": "6E9D89C"
+        }
+    ],
+    "ryu_ken_hardest_alternate": [
         {
             "name": "time",
             "type": "u1",
