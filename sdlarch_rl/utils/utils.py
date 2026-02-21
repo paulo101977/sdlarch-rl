@@ -5,6 +5,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 import os
 import re
 import random
+from pathlib import Path
 
 from pettingzoo import AECEnv
 from gymnasium import spaces
@@ -18,6 +19,10 @@ from torchvision.transforms import functional as TF
 from PIL import Image
 import torch
 from gymnasium.spaces import MultiBinary, Discrete
+
+import torch.nn as nn
+import torch as th
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 class TimeLimit(gym.Wrapper):
     def __init__(self, env, max_steps=10_000):
@@ -552,3 +557,88 @@ class CurriculumWrapper(gym.Wrapper):
             self.rewards_list = []
 
         return obs, reward, done, truncated, info
+
+def get_last_index(path: str, file_name: str, extension: str) -> int:
+    last_index = -1
+
+    extension = extension.lstrip(".")
+
+    for p in Path(path).glob(f"{file_name}*.{extension}"):
+        suffix = p.stem[len(file_name):]
+        if suffix.isdigit():
+            last_index = max(last_index, int(suffix))
+
+    return last_index
+
+class GenericCNN(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+        super().__init__(observation_space, features_dim)
+        n_input_channels = observation_space.shape[0]  # 4 channels
+        
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        
+
+        with th.no_grad():
+            sample = th.zeros(1, n_input_channels, 96, 96)
+            n_flatten = self.cnn(sample).shape[1]
+        
+        self.linear = nn.Sequential(
+            nn.Linear(n_flatten, features_dim),
+            nn.ReLU(),
+        )
+    
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        observations = observations.float()
+        
+        if observations.max() > 1.0:
+            observations = observations / 255.0
+
+        if observations.dim() == 5:
+            observations = observations.squeeze(-1)
+
+        if observations.dim() == 4 and observations.shape[3] == 1:
+            observations = observations.squeeze(-1)
+        
+        return self.linear(self.cnn(observations))
+
+class RealExcludeButtonsWrapper(gym.Wrapper):
+    def __init__(self, env, buttons, to_exclude):
+        super().__init__(env)
+
+        self.buttons = buttons
+        self.to_exclude = to_exclude
+
+        self.diff_button = [b for b in self.buttons if b not in self.to_exclude]
+        
+        self.action_space = gym.spaces.MultiBinary(len(self.diff_button))
+        
+        self.env = env
+
+        self.index_list = []
+        self.index_to_remove = []
+    
+        for button in self.diff_button:
+            self.index_list.append(buttons.index(button))
+
+        for button in self.to_exclude:
+            self.index_to_remove.append(buttons.index(button))
+
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+
+    def step(self, action):
+        n_action = [0] * len(self.buttons)
+
+        for i in range(len(self.diff_button)):
+            index = self.index_list[i]
+            n_action[index] = action[i]
+            
+        return self.env.step(n_action)

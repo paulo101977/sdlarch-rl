@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-def make(game, render_mode="rgb_array", **kwargs):
+def make(game, **kwargs):
     """
     Create a Gym environment for the specified game
     """
