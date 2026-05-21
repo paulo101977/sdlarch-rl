@@ -1,0 +1,12 @@
+gymnasium
+stable-baselines3
+opencv-python
+pygame
+imitation
+jupyterlab
+opt_einsum
+pettingzoo
+keyboard
+inputs
+sb3-contrib
+ipykernel

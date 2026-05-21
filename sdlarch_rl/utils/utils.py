@@ -380,11 +380,14 @@ class FrameSkip(gym.Wrapper):
     def step(self, action):
         reward = 0.0
 
+        total_reward = 0.0
+
         for i in range(self.skip):
             observation, reward, terminated, trunk, info = self.env.step(action)
+            total_reward += reward
             if terminated or trunk:
                 break
-        return observation, reward, terminated, trunk, info
+        return observation, total_reward, terminated, trunk, info
 
 def get_latest_model(path):
     models = list(path.glob("best_model_*"))

@@ -21,7 +21,6 @@ cmake_install.cmake
 *.z64
 *.chd
 _retro.*
-third-party/
 *.a
 **/__pycache__/*
 sdlarch_rl/roms/**/rom.*
